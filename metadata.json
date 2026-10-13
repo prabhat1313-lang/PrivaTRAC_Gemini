@@ -1,0 +1,6 @@
+{
+  "name": "PrivaTRAC - Privacy & Responsible-AI Sales Excellence",
+  "description": "Role-aware sales, pre-sales and partner relationship management workspace for PrivaSapien's privacy and responsible-AI portfolio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
