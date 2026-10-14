@@ -29,7 +29,14 @@ import {
   Trash2,
   FileText,
   Download,
+  History,
+  GitFork,
+  CornerDownRight,
+  CheckSquare,
+  Square,
+  ChevronRight,
 } from 'lucide-react';
+import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
 
 interface TaskBubbleEditorProps {
   task: Task;
@@ -44,13 +51,73 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
   onPopOut,
   isInline = false,
 }) => {
-  const { tasks, updateTask, addCommentToTask, accounts, currentUser } = useCrm();
+  const {
+    tasks,
+    updateTask,
+    completeTask,
+    canCompleteTask,
+    addTask,
+    addCommentToTask,
+    accounts,
+    currentUser,
+    users,
+  } = useCrm();
 
   const liveTask = tasks.find((t) => t.id === task.id) || task;
   const account = accounts.find((a) => a.id === task.accountId);
   const isPartnerUser = currentUser.role === 'Partner';
 
+  // Sub-tasks for this task
+  const childSubTasks = tasks.filter((t) => t.parentTaskId === liveTask.id);
+  const incompleteChildSubTasks = childSubTasks.filter(
+    (t) => !t.completedAt && t.status !== 'Completed' && t.status !== 'Completed Late'
+  );
+  const completedChildSubTasks = childSubTasks.filter(
+    (t) => Boolean(t.completedAt) || t.status === 'Completed' || t.status === 'Completed Late'
+  );
+
+  const [subTaskWarning, setSubTaskWarning] = useState<{
+    incompleteSubTasks: Task[];
+  } | null>(null);
+
+  // New sub-task input inside editor
+  const [isAddingSubTask, setIsAddingSubTask] = useState(false);
+  const [newSubTaskName, setNewSubTaskName] = useState('');
+  const [newSubTaskDesc, setNewSubTaskDesc] = useState('');
+  const [newSubTaskAssignee, setNewSubTaskAssignee] = useState(currentUser.id);
+  const [newSubTaskPriority, setNewSubTaskPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
+  const [newSubTaskTct, setNewSubTaskTct] = useState(
+    new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 16)
+  );
+
+  const handleAddSubTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    const taskName = newSubTaskName.trim() || newSubTaskDesc.trim();
+    const taskDesc = newSubTaskDesc.trim() || newSubTaskName.trim();
+    if (!taskName && !taskDesc) return;
+    addTask({
+      accountId: liveTask.accountId,
+      parentTaskId: liveTask.id,
+      relatedSection: liveTask.relatedSection,
+      name: taskName,
+      description: taskDesc,
+      creatorId: currentUser.id,
+      assigneeId: newSubTaskAssignee,
+      tct: new Date(newSubTaskTct).toISOString(),
+      priority: newSubTaskPriority,
+      isActivity: true,
+      interactionTag: 'email',
+      interactionTags: ['email'],
+      partnerTag: liveTask.partnerTag,
+      partnerTags: liveTask.partnerTags,
+    });
+    setNewSubTaskName('');
+    setNewSubTaskDesc('');
+    setIsAddingSubTask(false);
+  };
+
   // Safe defaults for all state
+  const [name, setName] = useState(task.name || '');
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>(task.priority || 'Medium');
   const [completedAt, setCompletedAt] = useState<string | undefined>(task.completedAt);
@@ -105,6 +172,7 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
   // Comment state
   const [newCommentText, setNewCommentText] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   // List of available partners across system
   const systemPartners = [
@@ -227,6 +295,7 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
 
     const updatedTask: Task = {
       ...liveTask,
+      name: name.trim() || undefined,
       description: description.trim(),
       priority,
       status: calculatedStatus,
@@ -276,6 +345,16 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
     { text: 'Conducted in-person executive review at client office.', tag: 'in-person' },
   ];
 
+  // Aggregated list of all comment-level interaction tags + task level interaction tags
+  const allActiveInteractionTags: InteractionTag[] = Array.from(
+    new Set([
+      ...interactionTags,
+      ...(liveTask.interactionTags || []),
+      ...(liveTask.interactionTag ? [liveTask.interactionTag] : []),
+      ...(commentsList.map((c) => c.interactionTag).filter(Boolean) as InteractionTag[]),
+    ])
+  );
+
   return (
     <div className="bg-white rounded-2xl border border-slate-300 shadow-xl overflow-hidden text-xs">
       {/* Speech Bubble Header */}
@@ -287,28 +366,64 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-slate-900 text-sm">
-                Task Edit · SLA & Partner Collaboration
+                {liveTask.name || name || 'Task Bubble Editor'}
               </h3>
               {!isPartnerUser && partnerTags.length > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {partnerTags.map((p) => (
                     <span
                       key={p}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium bg-slate-200 text-slate-700 border border-slate-300"
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-medium bg-slate-200 text-slate-800 border border-slate-300"
+                      title={`Partner SI: ${p}`}
                     >
-                      Partner: {p}
+                      <Handshake className="w-2.5 h-2.5 text-slate-600" />
+                      <span>Partner: {p}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {allActiveInteractionTags.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {allActiveInteractionTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className={`inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border ${
+                        tag === 'whatsapp'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : tag === 'email'
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : tag === 'call'
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                      title={`Interaction channel: ${tag}`}
+                    >
+                      {tag === 'whatsapp' && <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />}
+                      {tag === 'email' && <Mail className="w-2.5 h-2.5 text-sky-600" />}
+                      {tag === 'call' && <Phone className="w-2.5 h-2.5 text-indigo-600" />}
+                      {tag === 'in-person' && <Users className="w-2.5 h-2.5 text-amber-600" />}
+                      <span>{tag}</span>
                     </span>
                   ))}
                 </div>
               )}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Account: <strong>{account?.name || 'Unassigned'}</strong> · Pop-up Task Editor
+              Account: <strong>{account?.name || 'Unassigned'}</strong> · Pop-up Task Bubble
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsAuditModalOpen(true)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-medium text-xs transition"
+            title="View immutable audit trail of changes for this task"
+          >
+            <History className="w-3.5 h-3.5 text-slate-500" />
+            <span>Audit Trail ({liveTask.fieldAuditTrail?.length || 0})</span>
+          </button>
           {onPopOut && isInline && (
             <button
               onClick={onPopOut}
@@ -333,15 +448,37 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
         {/* Main Task Form */}
         <form id={`task-bubble-form-${task.id}`} onSubmit={handleSave} className="space-y-3.5">
           <div>
-            <label className="font-medium text-slate-700 block mb-1">
-              Task Description *
+            <label className="font-semibold text-slate-800 block mb-1 text-xs">
+              Task Name *
             </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Submit Revised SBI PETs Rate Card"
+              className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white"
+            />
+          </div>
+
+          {/* Task Description Component - Dedicated Component Visible Inside Task Bubble */}
+          <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-slate-600" />
+                <span>Task Description</span>
+              </label>
+              <span className="text-[10px] text-slate-500 font-medium">
+                Scope & Requirements (Visible inside bubble)
+              </span>
+            </div>
             <textarea
               required
-              rows={2}
+              rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white"
+              placeholder="Detailed description of task deliverables, technical requirements, and context..."
+              className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white shadow-2xs leading-relaxed"
             />
           </div>
 
@@ -631,6 +768,207 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
           </div>
         </form>
 
+        {/* Tasks & Sub-Tasks Capability Section */}
+        <div className="pt-3.5 border-t border-slate-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <GitFork className="w-4 h-4 text-sky-600" />
+              <h4 className="font-semibold text-slate-900 text-xs">
+                Sub-Tasks ({childSubTasks.length})
+              </h4>
+              {childSubTasks.length > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                    incompleteChildSubTasks.length === 0
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  {incompleteChildSubTasks.length === 0
+                    ? `✓ All ${childSubTasks.length} Completed`
+                    : `${completedChildSubTasks.length}/${childSubTasks.length} Completed`}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddingSubTask(!isAddingSubTask)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 font-medium text-[11px] transition shadow-2xs"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{isAddingSubTask ? 'Cancel' : 'Add Sub-Task'}</span>
+            </button>
+          </div>
+
+          {/* Sub-Task info notice */}
+          <div className="text-[10px] text-slate-500 mb-2 bg-slate-50 p-2 rounded border border-slate-200">
+            A Task cannot be completed until all its Sub-Tasks are marked Done. A task can have as many sub-tasks as required.
+          </div>
+
+          {/* Inline Add Sub-Task Form */}
+          {isAddingSubTask && (
+            <form onSubmit={handleAddSubTask} className="mb-3 p-3 bg-sky-50/50 rounded-lg border border-sky-200 space-y-2 text-xs">
+              <div className="font-semibold text-sky-900 text-xs">New Sub-Task</div>
+              <div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Sub-Task Name (displayed in list)..."
+                  value={newSubTaskName}
+                  onChange={(e) => setNewSubTaskName(e.target.value)}
+                  className="w-full p-2 border border-sky-300 rounded text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500 mb-1.5"
+                />
+                <input
+                  type="text"
+                  placeholder="Sub-Task Description (visible inside task bubble)..."
+                  value={newSubTaskDesc}
+                  onChange={(e) => setNewSubTaskDesc(e.target.value)}
+                  className="w-full p-2 border border-sky-200 rounded text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-medium text-slate-600 block mb-0.5">Assignee</label>
+                  <select
+                    value={newSubTaskAssignee}
+                    onChange={(e) => setNewSubTaskAssignee(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white text-slate-800"
+                  >
+                    {(users || []).map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-600 block mb-0.5">Target TCT</label>
+                  <input
+                    type="datetime-local"
+                    value={newSubTaskTct}
+                    onChange={(e) => setNewSubTaskTct(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-600 block mb-0.5">Priority</label>
+                  <select
+                    value={newSubTaskPriority}
+                    onChange={(e) => setNewSubTaskPriority(e.target.value as any)}
+                    className="w-full p-1.5 border border-slate-300 rounded text-xs bg-white text-slate-800"
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSubTask(false)}
+                  className="px-2.5 py-1 text-slate-600 text-xs hover:bg-slate-200 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white font-medium text-xs rounded transition"
+                >
+                  Create Sub-Task
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Sub-Tasks List */}
+          {childSubTasks.length === 0 ? (
+            <div className="py-2.5 text-center text-slate-400 text-xs bg-slate-50 rounded-lg border border-slate-200">
+              No sub-tasks yet for this task. Click "+ Add Sub-Task" to add children.
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {childSubTasks.map((st) => {
+                const isSubDone = Boolean(st.completedAt) || st.status === 'Completed' || st.status === 'Completed Late';
+                const assigneeUser = users?.find((u) => u.id === st.assigneeId);
+                return (
+                  <div
+                    key={st.id}
+                    className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition text-xs ${
+                      isSubDone
+                        ? 'bg-emerald-50/30 border-emerald-200'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CornerDownRight className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <span className="text-[10px] font-bold text-sky-800 bg-sky-100 px-1 py-0.2 rounded border border-sky-200 uppercase tracking-wider shrink-0">
+                        Sub-Task
+                      </span>
+                      <div className="min-w-0">
+                        <div
+                          className={`truncate ${
+                            isSubDone ? 'line-through text-slate-400 font-normal' : 'font-medium text-slate-800'
+                          }`}
+                        >
+                          {st.name || st.description}
+                        </div>
+                        {st.name && st.description && st.description !== st.name && (
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {st.description}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                        · {assigneeUser?.name || 'Assignee'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
+                          st.status === 'Completed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : st.status === 'Completed Late'
+                            ? 'bg-amber-100 text-amber-800'
+                            : st.status === 'Overdue'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {st.status}
+                      </span>
+
+                      {!isSubDone ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            completeTask(st.id);
+                            if (subTaskWarning) {
+                              const remaining = subTaskWarning.incompleteSubTasks.filter((t) => t.id !== st.id);
+                              if (remaining.length === 0) setSubTaskWarning(null);
+                              else setSubTaskWarning({ incompleteSubTasks: remaining });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[11px] font-medium transition"
+                          title="Complete this sub-task"
+                        >
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Done</span>
+                        </button>
+                      ) : (
+                        <span className="text-emerald-700 text-[11px] font-medium flex items-center gap-0.5">
+                          <Check className="w-3 h-3 text-emerald-600" /> Done
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Task Documents & Attachments Section */}
         <div className="pt-3.5 border-t border-slate-200">
           <div className="flex items-center justify-between mb-2">
@@ -918,45 +1256,97 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
             Cancel
           </button>
           {!completedAt && (
-            <button
-              type="button"
-              onClick={() => {
-                const nowIso = new Date().toISOString();
-                setCompletedAt(nowIso);
-                const updatedStatus = deriveTaskStatus(tct, nowIso);
-                const allInteractionTags = Array.from(
-                  new Set([
-                    ...interactionTags,
-                    ...((task.comments || []).map((c) => c.interactionTag).filter(Boolean) as InteractionTag[]),
-                  ])
-                );
-                updateTask({
-                  ...task,
-                  description: description.trim(),
-                  priority,
-                  status: updatedStatus,
-                  relatedSection: section,
-                  tct: new Date(tct).toISOString(),
-                  interactionTag: allInteractionTags[0] || undefined,
-                  interactionTags: allInteractionTags,
-                  partnerTag: partnerTags[0] || undefined,
-                  partnerTags: partnerTags,
-                  comments: task.comments || [],
-                  documents: documents,
-                  completedAt: nowIso,
-                });
-                setSaveSuccess(true);
-                setTimeout(() => {
-                  setSaveSuccess(false);
-                  onClose();
-                }, 400);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-medium text-xs inline-flex items-center gap-1 transition"
-              title="Mark task completed and close editor"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Complete & Close</span>
-            </button>
+            <div className="relative">
+              {subTaskWarning && (
+                <div className="absolute bottom-full right-0 mb-3 w-80 bg-white rounded-xl border-2 border-amber-400 p-3 shadow-xl z-30 animate-in fade-in slide-in-from-bottom-2">
+                  {/* Pointer arrow pointing down to the button */}
+                  <div className="absolute -bottom-2 right-8 w-4 h-4 bg-white border-b-2 border-r-2 border-amber-400 transform rotate-45" />
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Cannot Complete Task</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubTaskWarning(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-900 leading-snug mb-2">
+                    This Task has {subTaskWarning.incompleteSubTasks.length} incomplete Sub-Task(s). A Task cannot be completed until all its Sub-Tasks are completed.
+                  </p>
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {subTaskWarning.incompleteSubTasks.map((st) => (
+                      <div
+                        key={st.id}
+                        className="flex items-center justify-between gap-1.5 p-1.5 rounded bg-amber-50 border border-amber-200 text-[11px]"
+                      >
+                        <span className="font-medium text-slate-800 truncate">{st.description}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            completeTask(st.id);
+                            const remaining = subTaskWarning.incompleteSubTasks.filter((t) => t.id !== st.id);
+                            if (remaining.length === 0) setSubTaskWarning(null);
+                            else setSubTaskWarning({ incompleteSubTasks: remaining });
+                          }}
+                          className="px-2 py-0.5 rounded bg-emerald-600 text-white font-medium text-[10px] hover:bg-emerald-700 shrink-0 transition"
+                        >
+                          Mark Done
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const check = canCompleteTask(liveTask.id);
+                  if (!check.canComplete) {
+                    setSubTaskWarning({ incompleteSubTasks: check.incompleteSubTasks });
+                    return;
+                  }
+                  setSubTaskWarning(null);
+                  const nowIso = new Date().toISOString();
+                  setCompletedAt(nowIso);
+                  const updatedStatus = deriveTaskStatus(tct, nowIso);
+                  const allInteractionTags = Array.from(
+                    new Set([
+                      ...interactionTags,
+                      ...((task.comments || []).map((c) => c.interactionTag).filter(Boolean) as InteractionTag[]),
+                    ])
+                  );
+                  updateTask({
+                    ...task,
+                    description: description.trim(),
+                    priority,
+                    status: updatedStatus,
+                    relatedSection: section,
+                    tct: new Date(tct).toISOString(),
+                    interactionTag: allInteractionTags[0] || undefined,
+                    interactionTags: allInteractionTags,
+                    partnerTag: partnerTags[0] || undefined,
+                    partnerTags: partnerTags,
+                    comments: task.comments || [],
+                    documents: documents,
+                    completedAt: nowIso,
+                  });
+                  setSaveSuccess(true);
+                  setTimeout(() => {
+                    setSaveSuccess(false);
+                    onClose();
+                  }, 400);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-medium text-xs inline-flex items-center gap-1 transition"
+                title="Mark task completed and close editor"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Complete & Close</span>
+              </button>
+            </div>
           )}
           <button
             type="submit"
@@ -967,6 +1357,16 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
           </button>
         </div>
       </div>
+
+      {isAuditModalOpen && (
+        <ItemAuditTrailModal
+          title="Task Field Audit Trail"
+          subtitle={`Audit log for task: ${liveTask.description.slice(0, 45)}...`}
+          entityType="Task"
+          entries={liveTask.fieldAuditTrail || []}
+          onClose={() => setIsAuditModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

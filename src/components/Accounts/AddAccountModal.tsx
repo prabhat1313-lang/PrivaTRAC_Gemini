@@ -38,6 +38,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const [stage, setStage] = useState<AccountStage>('New Account');
   const [winningStance, setWinningStance] = useState<WinningStance>('Initial Stages');
   const [procurementType, setProcurementType] = useState<ProcurementType>('Direct Opportunity');
+  const [publicPrivate, setPublicPrivate] = useState<'Public' | 'Private'>('Private');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([
     'PrivaSapien Anonymizer Pro & PETs Core',
   ]);
@@ -118,7 +119,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       responsibleAiFlag: derivedAdoption.hasResponsibleAi,
       sector,
       geography,
-      publicPrivate: 'Private' as const,
+      publicPrivate,
       procurementType,
       productFamily: (
         derivedAdoption.hasResponsibleAi
@@ -309,6 +310,18 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 <option value="Direct Opportunity">Direct Opportunity</option>
                 <option value="Open RFP">Open RFP (Spins up 5 Subtasks)</option>
                 <option value="Closed RFP">Closed RFP (Spins up 5 Subtasks)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Account Type</label>
+              <select
+                value={publicPrivate}
+                onChange={(e) => setPublicPrivate(e.target.value as 'Public' | 'Private')}
+                className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 font-semibold"
+              >
+                <option value="Private">Private</option>
+                <option value="Public">Public</option>
               </select>
             </div>
 

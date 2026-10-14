@@ -17,6 +17,18 @@ export const INITIAL_USERS: User[] = [
     role: 'Sales Owner',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
     team: 'Enterprise Revenue (APAC/India)',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
+  },
+  {
+    id: 'user-sales-2',
+    name: 'Kavita Rao',
+    email: 'kavita.r@privasapien.io',
+    role: 'Sales Owner',
+    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=120&auto=format&fit=crop&q=80',
+    team: 'Mid-Market Sales & Emerging Accounts',
+    guidanceThreshold: 25, // Configured threshold: 25% (assigned tasks below 25% flags low guidance deficit)
+    initiativeThreshold: 50,
   },
   {
     id: 'user-presales-1',
@@ -25,6 +37,8 @@ export const INITIAL_USERS: User[] = [
     role: 'Pre-Sales Owner',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
     team: 'Solution Advisory & RFP Bid Desk',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
   },
   {
     id: 'user-se-1',
@@ -33,6 +47,8 @@ export const INITIAL_USERS: User[] = [
     role: 'Solution Engineer',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
     team: 'PETs & Technical Architecture',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
   },
   {
     id: 'user-leader-1',
@@ -41,6 +57,8 @@ export const INITIAL_USERS: User[] = [
     role: 'Leader',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop&q=80',
     team: 'Global Go-To-Market Leadership',
+    guidanceThreshold: 15,
+    initiativeThreshold: 60,
   },
   {
     id: 'user-salesops-1',
@@ -50,6 +68,8 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80',
     team: 'Commercial Operations & Governance',
     onBehalfOf: 'Vikram Malhotra',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
   },
   {
     id: 'user-partner-1',
@@ -59,6 +79,8 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
     team: 'Wipro CyberSecurity Alliances',
     partnerOrganization: 'Wipro Technologies',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
   },
   {
     id: 'user-admin-1',
@@ -67,6 +89,8 @@ export const INITIAL_USERS: User[] = [
     role: 'Administrator',
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80',
     team: 'System Operations & Privacy Office',
+    guidanceThreshold: 20,
+    initiativeThreshold: 50,
   },
 ];
 
@@ -741,6 +765,31 @@ export const INITIAL_CONTACTS: Contact[] = [
     consentState: 'Deemed Consent',
     isMasked: true,
     unmaskHistory: [],
+    fieldAuditTrail: [
+      {
+        id: 'aud-con-1',
+        field: 'Stakeholder Role Tags',
+        actor: 'Vikram Malhotra',
+        timestamp: '2026-10-08T15:20:00Z',
+        effectiveDate: '2026-10-08',
+        oldValue: 'Influencer',
+        newValue: 'Decision Maker, Champion',
+        provenance: 'Human-entered',
+        entityType: 'Contact',
+      },
+      {
+        id: 'aud-con-2',
+        field: 'Consent State',
+        actor: 'Pooja Hegde',
+        actingOnBehalfOf: 'Vikram Malhotra',
+        timestamp: '2026-10-05T10:00:00Z',
+        effectiveDate: '2026-10-05',
+        oldValue: 'Notice Sent',
+        newValue: 'Deemed Consent',
+        provenance: 'Human-confirmed',
+        entityType: 'Contact',
+      },
+    ],
   },
   {
     id: 'con-2',
@@ -873,6 +922,7 @@ export const INITIAL_CONTACTS: Contact[] = [
 export const INITIAL_TASKS: Task[] = [
   {
     id: 'task-1',
+    name: 'Submit Revised SBI PETs Rate Card',
     accountId: 'acc-1', // SBI
     relatedSection: 'Commercial Proposal',
     description: 'Submit revised commercial rate card for Tier-1 multi-cluster PETs license to SBI Procurement Committee.',
@@ -918,9 +968,84 @@ export const INITIAL_TASKS: Task[] = [
         timestamp: '2026-10-10T16:00:00Z',
       },
     ],
+    fieldAuditTrail: [
+      {
+        id: 'aud-tsk-1',
+        field: 'Priority Level',
+        actor: 'Dr. Siddharth Sen',
+        timestamp: '2026-10-10T09:30:00Z',
+        effectiveDate: '2026-10-10',
+        oldValue: 'Medium',
+        newValue: 'High',
+        provenance: 'Human-entered',
+        entityType: 'Task',
+      },
+      {
+        id: 'aud-tsk-2',
+        field: 'Assigned SI Partner',
+        actor: 'Pooja Hegde',
+        actingOnBehalfOf: 'Vikram Malhotra',
+        timestamp: '2026-10-09T14:15:00Z',
+        effectiveDate: '2026-10-09',
+        oldValue: 'Unassigned',
+        newValue: 'Wipro Technologies, Tata Consultancy Services',
+        provenance: 'Human-confirmed',
+        entityType: 'Task',
+      },
+    ],
+  },
+  {
+    id: 'task-1-sub-1',
+    parentTaskId: 'task-1',
+    name: 'Volume Discount Slabs Calculation',
+    accountId: 'acc-1',
+    relatedSection: 'Commercial Proposal',
+    description: 'Calculate volume discount slabs for Tier-1 multi-cluster PETs license',
+    creatorId: 'user-sales-1',
+    assigneeId: 'user-sales-1',
+    tct: '2026-10-12T14:00:00Z',
+    status: 'Pending',
+    priority: 'High',
+    isActivity: true,
+    interactionTag: 'email',
+    comments: [
+      {
+        id: 'tc-1-sub-1',
+        author: 'Vikram Malhotra',
+        timestamp: '2026-10-10T16:00:00Z',
+        text: 'Reviewing 5-cluster and 10-cluster threshold options with finance team.',
+      },
+    ],
+    documents: [],
+  },
+  {
+    id: 'task-1-sub-2',
+    parentTaskId: 'task-1',
+    name: 'Legal Indemnity Review & Approval',
+    accountId: 'acc-1',
+    relatedSection: 'Commercial Proposal',
+    description: 'Obtain legal indemnity review and sign-off from Chief Legal Officer',
+    creatorId: 'user-sales-1',
+    assigneeId: 'user-leader-1',
+    tct: '2026-10-11T16:00:00Z',
+    completedAt: '2026-10-11T15:30:00Z',
+    status: 'Completed',
+    priority: 'Medium',
+    isActivity: false,
+    interactionTag: 'email',
+    comments: [
+      {
+        id: 'tc-1-sub-2',
+        author: 'Dr. Siddharth Sen',
+        timestamp: '2026-10-11T15:30:00Z',
+        text: 'Approved clause 14.3 limitation of liability with standard enterprise cap.',
+      },
+    ],
+    documents: [],
   },
   {
     id: 'task-2',
+    name: 'Docker SBOM & FIPS Attestation',
     accountId: 'acc-1', // SBI
     relatedSection: 'Infra & SBOM',
     description: 'Deliver hardened Docker container SBOM and FIPS-140-3 cryptography attestation certificate.',
@@ -950,6 +1075,7 @@ export const INITIAL_TASKS: Task[] = [
   },
   {
     id: 'task-3',
+    name: 'Differential Privacy Benchmark Demo',
     accountId: 'acc-2', // Apollo Health
     relatedSection: 'Demo',
     description: 'Conduct live differential privacy benchmark on synthetic oncology DICOM metadata schema.',
@@ -978,7 +1104,41 @@ export const INITIAL_TASKS: Task[] = [
     documents: [],
   },
   {
+    id: 'task-3-sub-1',
+    parentTaskId: 'task-3',
+    name: 'Oncology DICOM Pseudonymization',
+    accountId: 'acc-2',
+    relatedSection: 'Demo',
+    description: 'Scrub and pseudonymize synthetic oncology DICOM dataset',
+    creatorId: 'user-se-1',
+    assigneeId: 'user-se-1',
+    tct: '2026-10-13T16:00:00Z',
+    completedAt: '2026-10-13T14:30:00Z',
+    status: 'Completed',
+    priority: 'Medium',
+    isActivity: true,
+    comments: [],
+    documents: [],
+  },
+  {
+    id: 'task-3-sub-2',
+    parentTaskId: 'task-3',
+    name: 'Privacy Epsilon & Delta Config',
+    accountId: 'acc-2',
+    relatedSection: 'Demo',
+    description: 'Configure differential privacy epsilon and delta bounds in sandbox runner',
+    creatorId: 'user-se-1',
+    assigneeId: 'user-se-1',
+    tct: '2026-10-14T09:30:00Z',
+    status: 'Pending',
+    priority: 'High',
+    isActivity: true,
+    comments: [],
+    documents: [],
+  },
+  {
     id: 'task-4',
+    name: 'HDFC CRO Re-engagement Meeting',
     accountId: 'acc-3', // HDFC Life
     relatedSection: 'General',
     description: 'Schedule re-engagement call with CRO Tarun Chawla to present updated DPDP compliance risk metrics.',
@@ -1001,6 +1161,7 @@ export const INITIAL_TASKS: Task[] = [
   },
   {
     id: 'task-5',
+    name: 'MAS FEAT Compliance Validation',
     accountId: 'acc-5', // DBS
     relatedSection: 'Technical Proposal',
     description: 'Validate MAS (Monetary Authority of Singapore) FEAT principle compliance in response matrix.',
@@ -1030,7 +1191,25 @@ export const INITIAL_TASKS: Task[] = [
     documents: [],
   },
   {
+    id: 'task-5-sub-1',
+    parentTaskId: 'task-5',
+    name: 'FEAT Matrix Section 4.2 Audit',
+    accountId: 'acc-5',
+    relatedSection: 'Technical Proposal',
+    description: 'Audit section 4.2 of FEAT response matrix against MAS guidelines',
+    creatorId: 'user-leader-1',
+    assigneeId: 'user-presales-1',
+    tct: '2026-10-11T09:30:00Z',
+    completedAt: '2026-10-11T09:15:00Z',
+    status: 'Completed',
+    priority: 'High',
+    isActivity: false,
+    comments: [],
+    documents: [],
+  },
+  {
     id: 'task-6',
+    name: 'Regional Data Transfer Agreement',
     accountId: 'acc-4', // Grab
     relatedSection: 'Contact',
     description: 'Follow up on regional data transfer agreement with Grab Legal team.',
@@ -1054,6 +1233,7 @@ export const INITIAL_TASKS: Task[] = [
   },
   {
     id: 'task-7',
+    name: 'Synthetic Masking Discovery Deck',
     accountId: 'acc-9', // Reliance Retail
     relatedSection: 'Technical Proposal',
     description: 'Prepare introductory discovery deck on synthetic transaction masking under DPDP regulations.',
@@ -1077,6 +1257,7 @@ export const INITIAL_TASKS: Task[] = [
   },
   {
     id: 'task-8',
+    name: 'RFP Annexure-B Security Questionnaire',
     accountId: 'acc-1', // SBI
     relatedSection: 'Technical Proposal',
     description: 'Dispatch official RFP response email with signed Annexure-B security questionnaire to SBI CISO.',
@@ -1100,6 +1281,90 @@ export const INITIAL_TASKS: Task[] = [
       },
     ],
   },
+  {
+    id: 'task-kavita-1',
+    name: 'Outreach to Emerging AI Startups for Privacy Sandbox API',
+    accountId: 'acc-2', // Tata 1mg
+    relatedSection: 'Commercial Proposal',
+    description: 'Initiate cold outreach to Series B fintech and healthtech startups for PrivaSapien privacy-enhancing API sandbox trials.',
+    creatorId: 'user-sales-2',
+    assigneeId: 'user-sales-2',
+    tct: '2026-10-18T18:00:00Z',
+    status: 'Pending',
+    priority: 'High',
+    isActivity: true, // Self-created Activity (High Initiative)
+    interactionTag: 'email',
+    interactionTags: ['email'],
+    comments: [
+      {
+        id: 'tc-k1',
+        author: 'Kavita Rao',
+        timestamp: '2026-10-12T10:00:00Z',
+        text: 'Sent personalized pitch deck on synthetic data to 8 founders.',
+        interactionTag: 'email',
+      },
+    ],
+    documents: [],
+  },
+  {
+    id: 'task-kavita-2',
+    name: 'Draft Custom PETs Pricing Proposal for FinTech Unicorn',
+    accountId: 'acc-4', // ICICI Lombard
+    relatedSection: 'Commercial Proposal',
+    description: 'Calculate tiered volume pricing and draft proposal for synthetic data generation engine for fraud detection testing.',
+    creatorId: 'user-sales-2',
+    assigneeId: 'user-sales-2',
+    tct: '2026-10-20T17:00:00Z',
+    status: 'Pending',
+    priority: 'Medium',
+    isActivity: true, // Self-created Activity
+    interactionTag: 'call',
+    interactionTags: ['call'],
+    comments: [
+      {
+        id: 'tc-k2',
+        author: 'Kavita Rao',
+        timestamp: '2026-10-13T14:30:00Z',
+        text: 'Phone debrief with analytics lead on synthetic transaction requirements.',
+        interactionTag: 'call',
+      },
+    ],
+    documents: [],
+  },
+  {
+    id: 'task-kavita-3',
+    name: 'Healthcare Synthetic Patient Records Demo Deck Preparation',
+    accountId: 'acc-2', // Tata 1mg
+    relatedSection: 'Demo',
+    description: 'Curate slides on synthetic EHR generation and HIPAA-compliant differential privacy for prospective healthcare clients.',
+    creatorId: 'user-sales-2',
+    assigneeId: 'user-sales-2',
+    tct: '2026-10-22T15:00:00Z',
+    status: 'Pending',
+    priority: 'Medium',
+    isActivity: true, // Self-created Activity
+    interactionTag: 'in-person',
+    interactionTags: ['in-person'],
+    comments: [],
+    documents: [],
+  },
+  {
+    id: 'task-kavita-4',
+    name: 'Technical Due Diligence Follow-Up for Cloud Privacy Sandbox',
+    accountId: 'acc-3', // Airtel
+    relatedSection: 'Technical Proposal',
+    description: 'Send whitepapers and SOC2 compliance package to InfoSec reviewers following preliminary discovery call.',
+    creatorId: 'user-sales-2',
+    assigneeId: 'user-sales-2',
+    tct: '2026-10-25T16:00:00Z',
+    status: 'Pending',
+    priority: 'High',
+    isActivity: true, // Self-created Activity
+    interactionTag: 'email',
+    interactionTags: ['email'],
+    comments: [],
+    documents: [],
+  },
 ];
 
 export const INITIAL_DEMOS: Demo[] = [
@@ -1111,10 +1376,26 @@ export const INITIAL_DEMOS: Demo[] = [
     status: 'Completed',
     attendeeContactIds: ['con-1', 'con-3'],
     solutionEngineerId: 'user-se-1',
+    agenda:
+      '1. Review Oracle Exadata throughput SLA (50,000 TPS target)\n2. Demonstrate in-memory epsilon-budget differential privacy injection\n3. Verify sub-5ms query response time\n4. Inspect cryptographic attestation ledger',
     minutesOfMeeting:
-      'Demonstrated 50,000 TPS real-time epsilon-budget anonymization without SQL query degradation. CISO Arvind V. was pleased with latency benchmarks (<4ms overhead).',
+      'Demonstrated 50,000 TPS real-time epsilon-budget anonymization without SQL query degradation. CISO Arvind V. was pleased with latency benchmarks (<4ms overhead). Executive committee approved move to PoC gate 3.',
     gapsIdentified:
-      'Requirement for native Oracle Exadata JDBC streaming connector rather than generic ODBC bridge.',
+      'Requirement for native Oracle Exadata JDBC streaming connector rather than generic ODBC bridge for automated failover clusters.',
+    comments: [
+      {
+        id: 'dcom-1',
+        author: 'Rahul Nair',
+        timestamp: '2026-09-24T12:30:00Z',
+        text: 'Session went exceptionally well. SBI Enterprise Architecture Committee signed off on the latency SLA.',
+      },
+      {
+        id: 'dcom-2',
+        author: 'Ananya Sharma',
+        timestamp: '2026-09-25T09:15:00Z',
+        text: 'Exadata connector gap has been escalated to Engineering team for sprint planning.',
+      },
+    ],
     timeline: [
       { date: '2026-09-15', note: 'Demo environment provisioned on isolated synthetic tenant' },
       { date: '2026-09-24', note: 'Conducted live session with SBI Architecture Board' },
@@ -1129,10 +1410,54 @@ export const INITIAL_DEMOS: Demo[] = [
     status: 'Scheduled',
     attendeeContactIds: ['con-4', 'con-5'],
     solutionEngineerId: 'user-se-1',
-    minutesOfMeeting: 'Pending execution.',
-    gapsIdentified: 'To be determined during technical deep-dive.',
+    agenda:
+      '1. Walkthrough of genomic synthetic clinical trial telemetry pipeline\n2. Demonstrate biomarker preservation metrics (AUC > 0.94)\n3. Verify HIPAA Safe Harbor de-identification guarantees\n4. Q&A with Chief Medical Informatics Officer Dr. Padmanabhan',
+    minutesOfMeeting: '',
+    gapsIdentified: '',
+    comments: [
+      {
+        id: 'dcom-3',
+        author: 'Rahul Nair',
+        timestamp: '2026-10-10T11:00:00Z',
+        text: 'Pre-demo sandbox provisioned. Dr. Padmanabhan requested focus on oncology genetic marker preservation.',
+      },
+      {
+        id: 'dcom-4',
+        author: 'Vikram Malhotra',
+        timestamp: '2026-10-12T15:40:00Z',
+        text: 'Confirmed attendees: Chief Medical Informatics Officer & Head of Clinical Informatics.',
+      },
+    ],
     timeline: [
       { date: '2026-10-06', note: 'DICOM synthetic test fixtures loaded into sandbox' },
+      { date: '2026-10-10', note: 'Agenda confirmed with customer technical sponsors' },
+    ],
+  },
+  {
+    id: 'demo-3',
+    accountId: 'acc-5', // DBS Bank
+    title: 'Consentium Bridge & CBAC Masking Architecture Demo',
+    scheduledDate: '2026-10-02T10:00:00Z',
+    status: 'Completed',
+    attendeeContactIds: [],
+    solutionEngineerId: 'user-se-1',
+    agenda:
+      '1. Overview of CBAC policy engine for cross-border wealth data\n2. Live demonstration of masked API responses for Singapore-Hong Kong corridor\n3. Tokenization & zero-knowledge validation flow',
+    minutesOfMeeting:
+      'Presented cross-border CBAC masking architecture to DBS Cloud Infrastructure team. Latency over AWS AP-Southeast was 8ms. Security auditors validated zero unmasked PII leakage.',
+    gapsIdentified:
+      'Need automated Terraform provider module for DBS internal private cloud Kubernetes cluster deployment.',
+    comments: [
+      {
+        id: 'dcom-5',
+        author: 'Rahul Nair',
+        timestamp: '2026-10-02T11:45:00Z',
+        text: 'Customer requested Terraform scripts by end of week. Demo marked Completed.',
+      },
+    ],
+    timeline: [
+      { date: '2026-09-28', note: 'Demo provisioned in AWS Singapore ap-southeast-1' },
+      { date: '2026-10-02', note: 'Demo completed with DBS Security Board' },
     ],
   },
 ];

@@ -16,6 +16,8 @@ export interface User {
   team: string;
   partnerOrganization?: string;
   onBehalfOf?: string;
+  guidanceThreshold?: number; // Threshold percentage below which leadership guidance is considered low/deficit (default 20)
+  initiativeThreshold?: number; // Threshold percentage above which self-initiative is considered high (default 50)
 }
 
 export type AccountStage =
@@ -84,6 +86,16 @@ export interface AuditEntry {
   newValue: string;
   provenance: 'Human-entered' | 'AI-suggested' | 'Human-confirmed';
   isBackDated?: boolean;
+  entityType?: 'Account' | 'Contact' | 'Task' | 'Admin' | 'Other';
+  entityId?: string;
+  entityName?: string;
+}
+
+export interface AuditMeta {
+  actor?: string;
+  actingOnBehalfOf?: string;
+  provenance?: 'Human-entered' | 'AI-suggested' | 'Human-confirmed';
+  effectiveDate?: string;
 }
 
 export interface Account {
@@ -174,6 +186,7 @@ export interface Contact {
   consentState: 'Deemed Consent' | 'Notice Sent' | 'Explicit Opt-in';
   isMasked: boolean;
   unmaskHistory: UnmaskLog[];
+  fieldAuditTrail?: AuditEntry[];
 }
 
 export type TaskStatus = 'Pending' | 'Completed' | 'Completed Late' | 'Overdue';
@@ -207,6 +220,7 @@ export interface TaskDocument {
 
 export interface Task {
   id: string;
+  name?: string; // Short Task Name displayed in Tasks List
   accountId: string;
   relatedSection?: TaskSection;
   description: string;
@@ -230,6 +244,15 @@ export interface Task {
   };
   effectiveDate?: string;
   isBackDated?: boolean;
+  fieldAuditTrail?: AuditEntry[];
+  parentTaskId?: string; // If set, this task is a Sub-Task of the designated parent Task
+}
+
+export interface DemoComment {
+  id: string;
+  author: string;
+  timestamp: string;
+  text: string;
 }
 
 export interface Demo {
@@ -240,8 +263,10 @@ export interface Demo {
   status: 'Scheduled' | 'Completed' | 'Rescheduled' | 'Cancelled';
   attendeeContactIds: string[];
   solutionEngineerId: string;
+  agenda?: string;
   minutesOfMeeting: string;
   gapsIdentified: string;
+  comments?: DemoComment[];
   timeline: { date: string; note: string }[];
 }
 

@@ -156,7 +156,7 @@ export const RfpWorkflowModal: React.FC<RfpWorkflowModalProps> = ({ account, onC
                       {task.rfpSubtask?.stepIndex}
                     </span>
                     <div>
-                      <div className="font-bold text-slate-900 text-xs">{task.description}</div>
+                      <div className="font-bold text-slate-900 text-xs">{task.name || task.description}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
                         TCT: {new Date(task.tct).toLocaleDateString()} • Assigned:{' '}
                         {task.rfpSubtask?.requiredRole}

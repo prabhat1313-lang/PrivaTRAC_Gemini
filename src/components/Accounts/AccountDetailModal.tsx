@@ -11,9 +11,13 @@ import {
   WinningStance,
   AccountDocument,
   DocumentCategory,
+  Contact,
 } from '../../types/crm';
 import { useCrm } from '../../context/CrmContext';
 import { TasksView } from '../Tasks/TasksView';
+import { DemoDetailBalloon } from '../Demos/DemoDetailBalloon';
+import { ContactEditModal } from '../Contacts/ContactEditModal';
+import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
 import {
   calculateAccountValue,
   calculateDealValue,
@@ -79,6 +83,9 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'tasks' | 'documents' | 'demos'>('overview');
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [selectedDemoId, setSelectedDemoId] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [auditTargetContact, setAuditTargetContact] = useState<Contact | null>(null);
 
   // Form state for edits
   const [formData, setFormData] = useState<Account>(account);
@@ -611,6 +618,22 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
                   </div>
 
                   <div>
+                    <label className="text-slate-500 font-bold block mb-1">
+                      Account Type:
+                    </label>
+                    <select
+                      value={formData.publicPrivate || 'Private'}
+                      onChange={(e) =>
+                        handleFieldSave('publicPrivate', e.target.value as 'Public' | 'Private')
+                      }
+                      className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white"
+                    >
+                      <option value="Private">Private Enterprise</option>
+                      <option value="Public">Public / Government Sector</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-slate-500 font-bold block text-xs">
                         Product Portfolio & Catalogue:
@@ -956,6 +979,27 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
                           Consent State: <strong>{contact.consentState}</strong> ({contact.source})
                         </div>
                       </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingContact(contact)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 text-white hover:bg-slate-800 text-[11px] font-semibold transition"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAuditTargetContact(contact)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-semibold transition"
+                          >
+                            <History className="w-3 h-3 text-slate-500" />
+                            <span>Audit ({contact.fieldAuditTrail?.length || 0})</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1230,34 +1274,98 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
           {/* Demos Tab */}
           {activeTab === 'demos' && (
             <div className="space-y-3">
-              <h4 className="font-bold text-slate-900 text-sm">Solution Engineering Demos & Gaps</h4>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Solution Engineering Demos & Gaps</h4>
+                  <p className="text-xs text-slate-500">
+                    Click any demo to open its detail balloon with Agenda, Minutes, and Comments
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                  {accountDemos.length} Logged
+                </span>
+              </div>
 
               {accountDemos.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-lg">
-                  No technical demos logged for this account.
+                <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                  No technical demos logged for this account yet.
                 </div>
               ) : (
-                accountDemos.map((demo) => (
-                  <div key={demo.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-sm">{demo.title}</span>
-                      <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-xs">
-                        {demo.status}
-                      </span>
+                accountDemos.map((demo) => {
+                  const isCompleted = demo.status === 'Completed';
+                  const commentsCount = (demo.comments || []).length;
+                  const agendaSnippet = demo.agenda
+                    ? demo.agenda.split('\n')[0].replace(/^[0-9]+[.)]\s*/, '').trim()
+                    : 'Pre-demo agenda documented';
+
+                  return (
+                    <div
+                      key={demo.id}
+                      onClick={() => setSelectedDemoId(demo.id)}
+                      className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group space-y-2.5"
+                      title="Click to open detailed Demo Balloon"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-slate-900 text-sm group-hover:text-blue-600 transition truncate block">
+                            {demo.title}
+                          </span>
+                          <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            Scheduled: {new Date(demo.scheduledDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${
+                            isCompleted
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-blue-50 text-blue-800 border-blue-200'
+                          }`}
+                        >
+                          {demo.status}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-600 leading-relaxed">
+                        <strong className="text-slate-700 block text-[11px] mb-0.5">Summary Agenda:</strong>
+                        <p className="line-clamp-2">{agendaSnippet}</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium border border-blue-100">
+                            Agenda
+                          </span>
+                          {isCompleted ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium border border-emerald-100">
+                              Minutes Logged
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-slate-50 text-slate-600 font-medium border border-slate-200">
+                              Minutes: Pending
+                            </span>
+                          )}
+                          {demo.gapsIdentified && demo.gapsIdentified.trim() ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-900 font-medium border border-amber-200/80">
+                              Gaps Noted
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-slate-50 text-slate-500 font-medium border border-slate-200">
+                              No Gaps
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                            {commentsCount} Comments
+                          </span>
+                        </div>
+
+                        <span className="text-blue-600 font-bold text-xs group-hover:translate-x-0.5 transition flex items-center gap-0.5 shrink-0">
+                          Open Balloon 🎈 →
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      Scheduled: {new Date(demo.scheduledDate).toLocaleString()}
-                    </div>
-                    <div className="pt-2 border-t border-slate-100 text-xs">
-                      <strong>Minutes of Meeting:</strong>
-                      <p className="text-slate-700 mt-0.5">{demo.minutesOfMeeting}</p>
-                    </div>
-                    <div className="text-xs">
-                      <strong className="text-amber-800">Identified Gaps:</strong>
-                      <p className="text-slate-700 mt-0.5">{demo.gapsIdentified}</p>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -1289,6 +1397,38 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Demo Detail Balloon */}
+      {selectedDemoId && (
+        (() => {
+          const selDemo = demos.find((d) => d.id === selectedDemoId);
+          return selDemo ? (
+            <DemoDetailBalloon
+              demo={selDemo}
+              onClose={() => setSelectedDemoId(null)}
+            />
+          ) : null;
+        })()
+      )}
+
+      {/* Edit Contact Modal */}
+      {editingContact && (
+        <ContactEditModal
+          contact={editingContact}
+          onClose={() => setEditingContact(null)}
+        />
+      )}
+
+      {/* Contact Audit Trail Modal */}
+      {auditTargetContact && (
+        <ItemAuditTrailModal
+          title={`${auditTargetContact.firstName} ${auditTargetContact.lastName}`}
+          subtitle={`Audit trail history for ${formData.name} contact`}
+          entityType="Contact"
+          entries={auditTargetContact.fieldAuditTrail || []}
+          onClose={() => setAuditTargetContact(null)}
+        />
+      )}
     </div>
   );
 };

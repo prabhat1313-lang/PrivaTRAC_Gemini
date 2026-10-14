@@ -78,12 +78,22 @@ export const AuditTrailModal: React.FC<AuditTrailModalProps> = ({ account, onClo
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <User className="w-3.5 h-3.5 text-slate-400" />
-                      <span>
-                        Actor: <strong>{entry.actor}</strong>
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        <span>Actor:</span>
+                        {entry.actor === 'SalesOps Copilot' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px]">
+                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                            SalesOps Copilot
+                          </span>
+                        ) : (
+                          <strong className="text-slate-800">{entry.actor}</strong>
+                        )}
                         {entry.actingOnBehalfOf && (
-                          <span className="text-amber-800"> (On behalf of {entry.actingOnBehalfOf})</span>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200/80 text-amber-900 font-semibold text-[10px]">
+                            On behalf of: <strong className="text-slate-900">{entry.actingOnBehalfOf}</strong>
+                          </span>
                         )}
                       </span>
                     </div>

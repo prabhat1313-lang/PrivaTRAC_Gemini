@@ -122,6 +122,15 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           <span className="px-1.5 py-0.5 rounded text-[10px] text-slate-500 bg-slate-50 border border-slate-200">
             {account.geography}
           </span>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+              account.publicPrivate === 'Public'
+                ? 'bg-blue-50 text-blue-700 border-blue-200/60'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+            }`}
+          >
+            {account.publicPrivate || 'Private'}
+          </span>
         </div>
 
         {/* Partner SI Tags (Internal PrivaSapien frontend item - hidden in Partner mode) */}

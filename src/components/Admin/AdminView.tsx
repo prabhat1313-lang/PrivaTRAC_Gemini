@@ -1,244 +1,228 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useCrm } from '../../context/CrmContext';
 import {
   Settings,
   Users,
-  Coins,
-  FileText,
   ShieldCheck,
-  Check,
-  Save,
-  Plus,
+  Sliders,
+  GitBranch,
+  Handshake,
+  FileText,
+  Upload,
+  Coins,
+  Shield,
+  Layers,
+  Database,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { GeneralSettingsAdminTab } from './GeneralSettingsAdminTab';
+import { UsersAdminTab } from './UsersAdminTab';
+import { RolesAdminTab } from './RolesAdminTab';
+import { FieldConfigsAdminTab } from './FieldConfigsAdminTab';
+import { WorkflowsAdminTab } from './WorkflowsAdminTab';
+import { PartnersAdminTab } from './PartnersAdminTab';
+import { CollateralsAdminTab } from './CollateralsAdminTab';
+import { DataImportAdminTab } from './DataImportAdminTab';
+import { AdminAuditTab } from './AdminAuditTab';
+import { History } from 'lucide-react';
+
+export type AdminSubTab =
+  | 'general'
+  | 'users'
+  | 'roles'
+  | 'fields'
+  | 'workflows'
+  | 'partners'
+  | 'collaterals'
+  | 'imports'
+  | 'audit';
 
 export const AdminView: React.FC = () => {
-  const {
-    users,
-    exchangeRates,
-    updateExchangeRate,
-    collaterals,
-    currentUser,
-  } = useCrm();
+  const { currentUser, users, teams, roles, workflows, customFields, collaterals, partnerSwotList, adminAuditTrail } = useCrm();
+  const [activeSubTab, setActiveSubTab] = useState<AdminSubTab>('general');
 
-  const [usdRate, setUsdRate] = useState(exchangeRates.rates.USD);
-  const [eurRate, setEurRate] = useState(exchangeRates.rates.EUR);
-  const [gbpRate, setGbpRate] = useState(exchangeRates.rates.GBP);
-  const [sgdRate, setSgdRate] = useState(exchangeRates.rates.SGD);
-  const [ratesSaved, setRatesSaved] = useState(false);
+  const adminTabs: {
+    id: AdminSubTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    count?: number;
+    badge?: string;
+  }[] = [
+    { id: 'general', label: 'General & Exchange Rates', icon: Coins, badge: 'Base: INR' },
+    { id: 'users', label: 'Users & Teams', icon: Users, count: users?.length },
+    { id: 'roles', label: 'Roles & RBAC Matrix', icon: ShieldCheck, count: roles?.length },
+    { id: 'fields', label: 'Field Configurations', icon: Sliders, count: customFields?.length },
+    { id: 'workflows', label: 'Workflows & SLAs', icon: GitBranch, count: workflows?.length },
+    { id: 'partners', label: 'Partner Ecosystem', icon: Handshake, count: partnerSwotList?.length },
+    { id: 'collaterals', label: 'Marketing Collaterals', icon: FileText, count: collaterals?.length },
+    { id: 'imports', label: 'Bulk Data Ingestion', icon: Upload, badge: 'CSV' },
+    { id: 'audit', label: 'Admin Audit Trail', icon: History, count: adminAuditTrail?.length },
+  ];
 
-  const handleSaveRates = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateExchangeRate('USD', Number(usdRate));
-    updateExchangeRate('EUR', Number(eurRate));
-    updateExchangeRate('GBP', Number(gbpRate));
-    updateExchangeRate('SGD', Number(sgdRate));
-    setRatesSaved(true);
-    setTimeout(() => setRatesSaved(false), 3000);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [checkScroll]);
+
+  // Ensure active sub-tab is scrolled into view
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const activeBtn = el.querySelector(`[data-tab="${activeSubTab}"]`) as HTMLElement;
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+    const timer = setTimeout(checkScroll, 350);
+    return () => clearTimeout(timer);
+  }, [activeSubTab, checkScroll]);
+
+  const scrollLeft = () => {
+    scrollContainerRef.current?.scrollBy({ left: -220, behavior: 'smooth' });
+    setTimeout(checkScroll, 300);
+  };
+
+  const scrollRight = () => {
+    scrollContainerRef.current?.scrollBy({ left: 220, behavior: 'smooth' });
+    setTimeout(checkScroll, 300);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex items-center justify-between">
+      {/* Top Header Card */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-slate-600" />
-            <h3 className="font-semibold text-slate-900 text-base">
-              System Administration
-            </h3>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage user roles, baseline exchange rates, and marketing collaterals
-          </p>
-        </div>
-        <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200">
-          Role: {currentUser.role}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Exchange Rates Configuration (ACC-10) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <Coins className="w-4 h-4 text-emerald-600" />
-              <h4 className="font-bold text-slate-900 text-sm">
-                Currency Exchange Rates (Base: INR)
-              </h4>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-2xs">
+              <Settings className="w-4 h-4" />
             </div>
-            <span className="text-[11px] text-slate-400">
-              Last configured: {exchangeRates.lastUpdated}
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                System Administration & Governance Console
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Centralized management of security roles, 4-tier permissions, dynamic entity schemas, SLA workflows, and corporate settings
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <div className="px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs flex items-center gap-2">
+            <span className="text-slate-500 text-[11px] font-medium">Active Session:</span>
+            <span className="font-bold text-slate-800">{currentUser.name}</span>
+            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+              {currentUser.role}
             </span>
           </div>
+        </div>
+      </div>
 
-          <p className="text-xs text-slate-600">
-            Used to dynamically standardize global deal currencies into INR across dashboard funnels and executive rollups without modifying the underlying deal currency.
-          </p>
+      {/* Sub-Tabs Navigation Strip with Scroll Indicators */}
+      <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-2xs relative">
+        {/* Left Scroll Arrow */}
+        {canScrollLeft && (
+          <div className="absolute left-1 top-0 bottom-0 z-10 flex items-center pl-1 pr-4 bg-gradient-to-r from-white via-white/95 to-transparent pointer-events-none rounded-l-xl">
+            <button
+              type="button"
+              onClick={scrollLeft}
+              aria-label="Scroll admin sub-tabs left"
+              className="pointer-events-auto p-1 rounded-full bg-white text-slate-700 shadow-xs border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition flex items-center justify-center cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
-          <form onSubmit={handleSaveRates} className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">USD (1 USD = ? INR)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={usdRate}
-                  onChange={(e) => setUsdRate(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded font-semibold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">EUR (1 EUR = ? INR)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={eurRate}
-                  onChange={(e) => setEurRate(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded font-semibold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">GBP (1 GBP = ? INR)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={gbpRate}
-                  onChange={(e) => setGbpRate(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded font-semibold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">SGD (1 SGD = ? INR)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={sgdRate}
-                  onChange={(e) => setSgdRate(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded font-semibold text-slate-800"
-                />
-              </div>
-            </div>
-
-            {ratesSaved && (
-              <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded font-bold text-xs flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-600" />
-                Rates updated and recalculating across active pipeline!
-              </div>
-            )}
-
-            <div className="pt-2 flex justify-end">
+        <div
+          ref={scrollContainerRef}
+          onScroll={checkScroll}
+          className="flex space-x-1 overflow-x-auto scrollbar-none py-0.5 scroll-smooth"
+        >
+          {adminTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
               <button
-                type="submit"
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium text-xs hover:bg-slate-800 flex items-center gap-1.5 transition"
+                key={tab.id}
+                data-tab={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                }`}
               >
-                <Save className="w-3.5 h-3.5" />
-                Save Exchange Rates
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Marketing Collaterals Repository (ADM-04) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-600" />
-              <h4 className="font-bold text-slate-900 text-sm">
-                Marketing Collaterals Repository
-              </h4>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-              {collaterals.length} Assets
-            </span>
-          </div>
-
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {collaterals.map((col) => (
-              <div
-                key={col.id}
-                className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-xs flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-slate-900">{col.title}</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {col.fileName} • {col.fileSize} • {col.category}
-                  </div>
-                </div>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {col.updatedDate}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Users & Role-Based Permissions Register (ADM-01 / ADM-02) */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-slate-200 font-bold text-slate-900 text-sm flex items-center justify-between">
-          <span>Users & Role Governance Directory</span>
-          <span className="text-xs text-slate-500 font-normal">
-            7 Configured Personas for Prototype Acceptance
-          </span>
-        </div>
-
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase text-[10px] bg-slate-50">
-              <th className="py-2.5 px-4">User</th>
-              <th className="py-2.5 px-4">Assigned Role</th>
-              <th className="py-2.5 px-4">Team / Organization</th>
-              <th className="py-2.5 px-4">Scope Model</th>
-              <th className="py-2.5 px-4">Attribution Feature</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-slate-50">
-                <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[10px] text-slate-700">
-                    {u.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div>{u.name}</div>
-                    <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
-                  </div>
-                </td>
-                <td className="py-3 px-4">
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                <span>{tab.label}</span>
+                {typeof tab.count === 'number' && (
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      u.role === 'Leader'
-                        ? 'bg-purple-100 text-purple-800'
-                        : u.role === 'Partner'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : u.role === 'SalesOps'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-blue-100 text-blue-800'
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums ${
+                      isActive
+                        ? 'bg-slate-800 text-slate-200 border border-slate-700'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
-                    {u.role}
+                    {tab.count}
                   </span>
-                </td>
-                <td className="py-3 px-4 text-slate-600">
-                  {u.partnerOrganization || u.team}
-                </td>
-                <td className="py-3 px-4 text-slate-700">
-                  {u.role === 'Leader' || u.role === 'Administrator' || u.role === 'SalesOps'
-                    ? 'Total Enterprise View'
-                    : u.role === 'Partner'
-                    ? 'Strictly Tagged Accounts'
-                    : 'Assigned Accounts Default'}
-                </td>
-                <td className="py-3 px-4 text-slate-500">
-                  {u.role === 'SalesOps' ? 'On-behalf-of field logging' : 'Direct actor logging'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                )}
+                {tab.badge && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Scroll Arrow */}
+        {canScrollRight && (
+          <div className="absolute right-1 top-0 bottom-0 z-10 flex items-center pr-1 pl-4 bg-gradient-to-l from-white via-white/95 to-transparent pointer-events-none rounded-r-xl">
+            <button
+              type="button"
+              onClick={scrollRight}
+              aria-label="Scroll admin sub-tabs right"
+              className="pointer-events-auto p-1 rounded-full bg-white text-slate-700 shadow-xs border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition flex items-center justify-center cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tab Panels */}
+      <div>
+        {activeSubTab === 'general' && <GeneralSettingsAdminTab />}
+        {activeSubTab === 'users' && <UsersAdminTab />}
+        {activeSubTab === 'roles' && <RolesAdminTab />}
+        {activeSubTab === 'fields' && <FieldConfigsAdminTab />}
+        {activeSubTab === 'workflows' && <WorkflowsAdminTab />}
+        {activeSubTab === 'partners' && <PartnersAdminTab />}
+        {activeSubTab === 'collaterals' && <CollateralsAdminTab />}
+        {activeSubTab === 'imports' && <DataImportAdminTab />}
+        {activeSubTab === 'audit' && <AdminAuditTab />}
       </div>
     </div>
   );

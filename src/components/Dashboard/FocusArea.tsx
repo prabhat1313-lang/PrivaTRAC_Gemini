@@ -20,16 +20,23 @@ import {
   Handshake,
   ChevronDown,
   ChevronUp,
+  GitFork,
+  CornerDownRight,
+  X,
 } from 'lucide-react';
 
 export const FocusArea: React.FC = () => {
-  const { tasks, accounts, completeTask, isPartnerMode, activePartnerName } = useCrm();
+  const { tasks, accounts, completeTask, canCompleteTask, isPartnerMode, activePartnerName } = useCrm();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'7030' | 'tct' | 'priority'>('7030');
   const [activeBubbleTaskId, setActiveBubbleTaskId] = useState<string | null>(null);
   const [floatingBubbleTask, setFloatingBubbleTask] = useState<Task | null>(null);
+  const [subTaskWarning, setSubTaskWarning] = useState<{
+    taskId: string;
+    incompleteSubTasks: Task[];
+  } | null>(null);
 
   // Account map for fast lookup
   const accountMap = useMemo(() => {
@@ -253,7 +260,7 @@ export const FocusArea: React.FC = () => {
             <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase text-[10px] tracking-wider bg-slate-50/50">
               <th className="py-2.5 px-3">Score & Bubble</th>
               <th className="py-2.5 px-3">Account</th>
-              <th className="py-2.5 px-3">Task Description & Meta</th>
+              <th className="py-2.5 px-3">Task Name & Meta</th>
               <th className="py-2.5 px-3">Channel</th>
               <th className="py-2.5 px-3">Target Time</th>
               <th className="py-2.5 px-3">Status</th>
@@ -324,8 +331,8 @@ export const FocusArea: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-3 max-w-xs">
-                        <div className="text-slate-800 leading-relaxed font-medium group-hover:text-slate-950">
-                          {task.description}
+                        <div className="text-slate-800 leading-relaxed font-semibold group-hover:text-slate-950">
+                          {task.name || task.description}
                         </div>
 
                         {/* Meta badges: Partner tag, Comments count, RFP stage */}
@@ -431,7 +438,18 @@ export const FocusArea: React.FC = () => {
                           {/* Done Button */}
                           {!task.completedAt ? (
                             <button
-                              onClick={() => completeTask(task.id)}
+                              onClick={() => {
+                                const check = canCompleteTask(task.id);
+                                if (!check.canComplete) {
+                                  setSubTaskWarning({
+                                    taskId: task.id,
+                                    incompleteSubTasks: check.incompleteSubTasks,
+                                  });
+                                  return;
+                                }
+                                setSubTaskWarning(null);
+                                completeTask(task.id);
+                              }}
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition"
                               title="Mark as completed"
                             >
@@ -444,6 +462,78 @@ export const FocusArea: React.FC = () => {
                         </div>
                       </td>
                     </tr>
+
+                    {/* INLINE MESSAGE BUBBLE - Informing that task cannot be completed until sub-tasks are done */}
+                    {subTaskWarning?.taskId === task.id && (
+                      <tr className="bg-amber-50/80 border-y-2 border-amber-400 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <td colSpan={8} className="p-3 sm:p-4">
+                          <div className="relative bg-white rounded-xl border-2 border-amber-400 p-4 shadow-xl max-w-2xl mx-auto">
+                            {/* Speech-bubble arrow tail pointer */}
+                            <div className="absolute -top-2.5 right-12 w-4 h-4 bg-white border-t-2 border-l-2 border-amber-400 transform rotate-45 z-10" />
+
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-slate-900 text-xs">
+                                    Cannot Complete Task — Incomplete Sub-Tasks
+                                  </h4>
+                                  <p className="text-[11px] text-amber-800">
+                                    This Task has {subTaskWarning.incompleteSubTasks.length} incomplete Sub-Task(s). A Task cannot be completed until all its Sub-Tasks are completed.
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setSubTaskWarning(null)}
+                                className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition"
+                                title="Dismiss"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Incomplete sub-tasks list */}
+                            <div className="mt-2 space-y-1.5 bg-amber-50/60 rounded-lg p-2.5 border border-amber-200">
+                              <div className="text-[10px] font-semibold text-amber-900 uppercase tracking-wider">
+                                Pending Sub-Tasks:
+                              </div>
+                              {subTaskWarning.incompleteSubTasks.map((st) => (
+                                <div
+                                  key={st.id}
+                                  className="flex items-center justify-between gap-2 p-1.5 rounded bg-white border border-amber-200 text-xs shadow-2xs"
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <CornerDownRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <span className="font-semibold text-[10px] text-amber-900 bg-amber-100 px-1 py-0.2 rounded border border-amber-200 uppercase tracking-wider shrink-0">
+                                      Sub-Task
+                                    </span>
+                                    <span className="font-medium text-slate-800 truncate">
+                                      {st.description}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      completeTask(st.id);
+                                      const remaining = subTaskWarning.incompleteSubTasks.filter((t) => t.id !== st.id);
+                                      if (remaining.length === 0) {
+                                        setSubTaskWarning(null);
+                                      } else {
+                                        setSubTaskWarning({ ...subTaskWarning, incompleteSubTasks: remaining });
+                                      }
+                                    }}
+                                    className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[10px] shrink-0 transition"
+                                  >
+                                    Mark Done
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {/* INLINE SPEECH-BUBBLE CALLOUT TRAY (Appears directly beneath the task!) */}
                     {isBubbleOpen && (
