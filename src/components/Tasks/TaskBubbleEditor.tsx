@@ -47,6 +47,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
+import { ProfileCompletionBadge } from '../Profile/ProfileCompletionBadge';
 
 interface TaskBubbleEditorProps {
   task: Task;
@@ -495,6 +496,7 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
+          <ProfileCompletionBadge compact />
           <button
             type="button"
             onClick={() => setIsAuditModalOpen(true)}

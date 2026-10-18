@@ -7,6 +7,20 @@ export type UserRole =
   | 'Partner'
   | 'Administrator';
 
+export interface UserProfileDetails {
+  designation?: string;
+  department?: string;
+  primaryTerritory?: string;
+  productSpecializations?: string[];
+  defaultCurrency?: 'INR' | 'USD' | 'SGD' | 'EUR' | 'GBP';
+  useIndianNumbering?: boolean;
+  delegationAuthorized?: boolean;
+  delegatedProxyUser?: string;
+  notificationsEnabled?: boolean;
+  profileCompletionPercentage?: number;
+  completedAt?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -18,6 +32,8 @@ export interface User {
   onBehalfOf?: string;
   guidanceThreshold?: number; // Threshold percentage below which leadership guidance is considered low/deficit (default 20)
   initiativeThreshold?: number; // Threshold percentage above which self-initiative is considered high (default 50)
+  profileCompleted?: boolean;
+  profileDetails?: UserProfileDetails;
 }
 
 export type AccountStage =

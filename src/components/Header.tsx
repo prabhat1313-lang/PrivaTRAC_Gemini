@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   RotateCcw,
@@ -12,10 +12,14 @@ import {
   CheckSquare2,
   Building2,
   X,
+  Search,
+  HelpCircle,
+  User,
 } from 'lucide-react';
 import { useCrm } from '../context/CrmContext';
 import { UserRole } from '../types/crm';
 import { SalesOpsAgentModal } from './SalesOps/SalesOpsAgentModal';
+import { ProfileWizardModal } from './Profile/ProfileWizardModal';
 
 interface HeaderProps {
   onOpenAddAccount?: () => void;
@@ -42,8 +46,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
   const [behalfMenuOpen, setBehalfMenuOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [isSalesOpsModalOpen, setIsSalesOpsModalOpen] = useState(false);
+  const [copilotModalMode, setCopilotModalMode] = useState<'actions' | 'help'>('actions');
+  const [copilotInitialPrompt, setCopilotInitialPrompt] = useState('');
+  const [headerHelpQuery, setHeaderHelpQuery] = useState('');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeNotifTab, setActiveNotifTab] = useState<'product' | 'task' | 'account'>('product');
+
+  // First-time onboarding trigger check
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('privasapien_onboarding_wizard_shown');
+    if (!hasSeen && !currentUser.profileCompleted) {
+      setIsProfileModalOpen(true);
+      localStorage.setItem('privasapien_onboarding_wizard_shown', 'true');
+    }
+  }, [currentUser.profileCompleted]);
+
+  const handleOpenHelpQuery = (queryText: string) => {
+    setCopilotModalMode('help');
+    setCopilotInitialPrompt(queryText);
+    setIsSalesOpsModalOpen(true);
+  };
 
   const availableRoles: UserRole[] = [
     'Sales Owner',
@@ -141,6 +164,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
 
               {roleMenuOpen && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs divide-y divide-slate-100">
+                  {/* Guided Profile Setup Launcher */}
+                  <div className="p-2 bg-indigo-50/50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoleMenuOpen(false);
+                        setIsProfileModalOpen(true);
+                      }}
+                      className="w-full text-left p-2 rounded-lg bg-white border border-indigo-200 hover:border-indigo-300 text-xs transition flex items-center justify-between shadow-2xs cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <div>
+                          <div className="font-bold text-slate-900">Guided Profile Setup</div>
+                          <div className="text-[10px] text-slate-500">
+                            {currentUser.profileCompleted ? '100% Completed · Verified' : '60% Setup · Action Recommended'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                        {currentUser.profileCompleted ? 'Edit' : 'Complete →'}
+                      </span>
+                    </button>
+                  </div>
+
                   <div>
                     <div className="px-3 py-1 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
                       Switch User
@@ -203,9 +251,56 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
               )}
             </div>
 
+            {/* Header Help & Knowledge Query Search Input */}
+            <div className="relative hidden md:flex items-center">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+              <input
+                type="text"
+                value={headerHelpQuery}
+                onChange={(e) => setHeaderHelpQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && headerHelpQuery.trim()) {
+                    handleOpenHelpQuery(headerHelpQuery);
+                  }
+                }}
+                placeholder="Ask Copilot or type a command... (Enter)"
+                className="pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52 lg:w-64 transition shadow-2xs"
+              />
+              {headerHelpQuery ? (
+                <button
+                  type="button"
+                  onClick={() => handleOpenHelpQuery(headerHelpQuery)}
+                  className="absolute right-2 p-0.5 text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  title="Submit query to Copilot Guide"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <span className="absolute right-2 text-[10px] text-slate-400 font-mono pointer-events-none">↵</span>
+              )}
+            </div>
+
+            {/* Quick Help & Guide Button */}
+            <button
+              onClick={() => {
+                setCopilotModalMode('help');
+                setCopilotInitialPrompt('');
+                setIsSalesOpsModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition shadow-2xs cursor-pointer"
+              title="Help Module & Guided Answers"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden xl:inline">Help & Guide</span>
+            </button>
+
             {/* SalesOps AI Agent Action Button */}
             <button
-              onClick={() => setIsSalesOpsModalOpen(true)}
+              onClick={() => {
+                setCopilotModalMode('actions');
+                setCopilotInitialPrompt('');
+                setIsSalesOpsModalOpen(true);
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white hover:from-slate-800 hover:to-indigo-900 border border-indigo-500/30 shadow-xs transition cursor-pointer"
               title="Instruct SalesOps AI Agent for quick updates"
             >
@@ -217,10 +312,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
               </span>
             </button>
 
-            {/* SalesOps Agent Confirmation Modal */}
+            {/* SalesOps Agent & Help Modal */}
             <SalesOpsAgentModal
               isOpen={isSalesOpsModalOpen}
               onClose={() => setIsSalesOpsModalOpen(false)}
+              initialMode={copilotModalMode}
+              initialPrompt={copilotInitialPrompt}
+              onNavigateTab={onNavigateTab}
+            />
+
+            {/* Guided Profile Setup Modal */}
+            <ProfileWizardModal
+              isOpen={isProfileModalOpen}
+              onClose={() => setIsProfileModalOpen(false)}
             />
 
             {/* Top-Right Notifications Center */}

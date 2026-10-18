@@ -23,6 +23,7 @@ import { TasksView } from '../Tasks/TasksView';
 import { DemoDetailBalloon } from '../Demos/DemoDetailBalloon';
 import { ContactEditModal } from '../Contacts/ContactEditModal';
 import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
+import { ProfileCompletionBadge } from '../Profile/ProfileCompletionBadge';
 import {
   calculateAccountValue,
   calculateDealValue,
@@ -591,6 +592,7 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <ProfileCompletionBadge compact />
             <button
               onClick={() => onOpenAudit(account)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs"
