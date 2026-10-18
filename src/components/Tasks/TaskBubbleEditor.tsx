@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Task, TaskSection, TaskStatus, InteractionTag, TaskDocument } from '../../types/crm';
+import {
+  Task,
+  TaskSection,
+  TaskStatus,
+  InteractionTag,
+  TaskDocument,
+  ChecklistOwnerType,
+  SubmissionChecklistItem,
+  ReviewScheduleItem,
+} from '../../types/crm';
 import { useCrm } from '../../context/CrmContext';
 import { deriveTaskStatus } from '../../utils/calculations';
 import {
@@ -35,6 +44,7 @@ import {
   CheckSquare,
   Square,
   ChevronRight,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
 
@@ -114,6 +124,76 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
     setNewSubTaskName('');
     setNewSubTaskDesc('');
     setIsAddingSubTask(false);
+  };
+
+  // RFP Submission Checklist & Review Schedule Editing Handlers
+  const handleUpdateChecklistItem = (itemId: string, updates: Partial<SubmissionChecklistItem>) => {
+    if (!liveTask.submissionChecklist) return;
+    const updatedList = liveTask.submissionChecklist.map((item) =>
+      item.id === itemId ? { ...item, ...updates } : item
+    );
+    updateTask({
+      ...liveTask,
+      submissionChecklist: updatedList,
+    });
+  };
+
+  const handleUpdateReviewScheduleItem = (itemId: string, updates: Partial<ReviewScheduleItem>) => {
+    if (!liveTask.reviewSchedule) return;
+    const updatedSchedule = liveTask.reviewSchedule.map((item) =>
+      item.id === itemId ? { ...item, ...updates } : item
+    );
+    updateTask({
+      ...liveTask,
+      reviewSchedule: updatedSchedule,
+    });
+  };
+
+  const handleExportChecklistCsv = () => {
+    if (!liveTask.submissionChecklist) return;
+    const headers = ['Document Name', 'Description', 'Mandatory', 'Owner', 'Assigned SI Partner', 'Status', 'Notes'];
+    const rows = liveTask.submissionChecklist.map((item) => [
+      `"${item.documentName.replace(/"/g, '""')}"`,
+      `"${(item.description || '').replace(/"/g, '""')}"`,
+      item.mandatory ? 'Yes' : 'No',
+      item.owner,
+      `"${(item.assignedPartnerName || '').replace(/"/g, '""')}"`,
+      item.status,
+      `"${(item.notes || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${liveTask.name || 'Submission_Checklist'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportReviewScheduleCsv = () => {
+    if (!liveTask.reviewSchedule) return;
+    const headers = ['Clause Ref', 'Category', 'Title', 'Description', 'Owner / Role', 'Risk / Impact', 'Status', 'Notes'];
+    const rows = liveTask.reviewSchedule.map((item) => [
+      `"${(item.clauseRef || '').replace(/"/g, '""')}"`,
+      `"${(item.category || '').replace(/"/g, '""')}"`,
+      `"${item.title.replace(/"/g, '""')}"`,
+      `"${(item.description || '').replace(/"/g, '""')}"`,
+      `"${(item.ownerOrRole || '').replace(/"/g, '""')}"`,
+      item.riskOrImpact,
+      item.status,
+      `"${(item.notes || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${liveTask.name || 'Review_Schedule'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Safe defaults for all state
@@ -767,6 +847,274 @@ export const TaskBubbleEditor: React.FC<TaskBubbleEditorProps> = ({
             </p>
           </div>
         </form>
+
+        {/* Specialized RFP Review Tables: Submission Checklist or Clause Schedule */}
+        {liveTask.submissionChecklist && liveTask.submissionChecklist.length > 0 && (
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs">
+                    Submission Documents Checklist ({liveTask.submissionChecklist.length} Required Items)
+                  </h4>
+                  {liveTask.sourceDocumentName && (
+                    <p className="text-[11px] text-slate-500">
+                      Auto-extracted from RFP tender document: <strong>{liveTask.sourceDocumentName}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportChecklistCsv}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-300 shadow-2xs transition"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Export to Excel / CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                    <th className="py-2.5 px-3">Required Document</th>
+                    <th className="py-2.5 px-3">Mandatory</th>
+                    <th className="py-2.5 px-3">Responsibility Owner</th>
+                    <th className="py-2.5 px-3">Assigned SI Partner</th>
+                    <th className="py-2.5 px-3">Fulfillment Status</th>
+                    <th className="py-2.5 px-3">Review Notes / Attestation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {liveTask.submissionChecklist.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-2.5 px-3 max-w-xs">
+                        <div className="font-semibold text-slate-900 text-xs">{item.documentName}</div>
+                        {item.description && (
+                          <div className="text-[11px] text-slate-500 line-clamp-1">{item.description}</div>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        {item.mandatory ? (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Mandatory
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            Optional
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <select
+                          value={item.owner}
+                          onChange={(e) =>
+                            handleUpdateChecklistItem(item.id, {
+                              owner: e.target.value as ChecklistOwnerType,
+                            })
+                          }
+                          className="px-2 py-1 text-xs border border-slate-300 rounded font-medium bg-white"
+                        >
+                          <option value="OEM">OEM Only</option>
+                          <option value="SI Partner">SI Partner</option>
+                          <option value="Both">Both (Joint Consortium)</option>
+                        </select>
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        {item.owner === 'OEM' ? (
+                          <span className="text-[11px] text-slate-400 italic">PrivaSapien (OEM)</span>
+                        ) : (
+                          <select
+                            value={item.assignedPartnerName || ''}
+                            onChange={(e) =>
+                              handleUpdateChecklistItem(item.id, {
+                                assignedPartnerName: e.target.value,
+                              })
+                            }
+                            className="px-2 py-1 text-xs border border-indigo-300 rounded text-indigo-900 bg-indigo-50/30 font-medium"
+                          >
+                            <option value="">Select Account Partner...</option>
+                            {(account?.partners || ['Wipro Technologies', 'Infosys', 'TCS']).map((p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <select
+                          value={item.status}
+                          onChange={(e) =>
+                            handleUpdateChecklistItem(item.id, {
+                              status: e.target.value as any,
+                            })
+                          }
+                          className={`px-2 py-1 text-xs border rounded font-semibold ${
+                            item.status === 'Ready'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : item.status === 'Submitted'
+                              ? 'bg-sky-50 text-sky-800 border-sky-300'
+                              : item.status === 'In Progress'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-slate-50 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Ready">Ready / Packaged</option>
+                          <option value="Submitted">Submitted</option>
+                        </select>
+                      </td>
+                      <td className="py-2.5 px-3 max-w-xs">
+                        <input
+                          type="text"
+                          value={item.notes || ''}
+                          onChange={(e) =>
+                            handleUpdateChecklistItem(item.id, {
+                              notes: e.target.value,
+                            })
+                          }
+                          placeholder="Add attestation note or signed file ref..."
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {liveTask.reviewSchedule && liveTask.reviewSchedule.length > 0 && (
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs">
+                    Tender Review Schedule ({liveTask.reviewSchedule.length} Tracked Clauses)
+                  </h4>
+                  {liveTask.sourceDocumentName && (
+                    <p className="text-[11px] text-slate-500">
+                      RFP Source Document: <strong>{liveTask.sourceDocumentName}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportReviewScheduleCsv}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-300 shadow-2xs transition"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Export to Excel / CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                    <th className="py-2.5 px-3">Clause Ref</th>
+                    <th className="py-2.5 px-3">Category</th>
+                    <th className="py-2.5 px-3">Title & Requirement Scope</th>
+                    <th className="py-2.5 px-3">Responsible Role</th>
+                    <th className="py-2.5 px-3">Risk Level</th>
+                    <th className="py-2.5 px-3">Review Status</th>
+                    <th className="py-2.5 px-3">Legal / Delivery Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {liveTask.reviewSchedule.map((clause) => (
+                    <tr key={clause.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-700 whitespace-nowrap">
+                        {clause.clauseRef}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                          {clause.category}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 max-w-sm">
+                        <div className="font-semibold text-slate-900 text-xs">{clause.title}</div>
+                        {clause.description && (
+                          <div className="text-[11px] text-slate-500 line-clamp-1">{clause.description}</div>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-700">
+                        {clause.ownerOrRole}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                            clause.riskOrImpact === 'High'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : clause.riskOrImpact === 'Medium'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-slate-50 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          {clause.riskOrImpact} Risk
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <select
+                          value={clause.status}
+                          onChange={(e) =>
+                            handleUpdateReviewScheduleItem(clause.id, {
+                              status: e.target.value as any,
+                            })
+                          }
+                          className={`px-2 py-1 text-xs border rounded font-semibold ${
+                            clause.status === 'Approved'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : clause.status === 'Flagged'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              : clause.status === 'Reviewed'
+                              ? 'bg-sky-50 text-sky-800 border-sky-300'
+                              : 'bg-slate-50 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          <option value="Pending">Pending Review</option>
+                          <option value="Flagged">Flagged / Deviation</option>
+                          <option value="Reviewed">Reviewed</option>
+                          <option value="Approved">Approved</option>
+                        </select>
+                      </td>
+                      <td className="py-2.5 px-3 max-w-xs">
+                        <input
+                          type="text"
+                          value={clause.notes || ''}
+                          onChange={(e) =>
+                            handleUpdateReviewScheduleItem(clause.id, {
+                              notes: e.target.value,
+                            })
+                          }
+                          placeholder="Add comments or pre-bid query draft..."
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Tasks & Sub-Tasks Capability Section */}
         <div className="pt-3.5 border-t border-slate-200">

@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { useCrm } from '../context/CrmContext';
 
@@ -19,6 +20,7 @@ export type ActiveTab =
   | 'accounts'
   | 'contacts'
   | 'tasks'
+  | 'productMatrix'
   | 'demos'
   | 'partners'
   | 'mailbox'
@@ -48,6 +50,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
       icon: CheckSquare2,
       badge: overdueCount > 0 ? `${overdueCount}` : undefined,
     },
+    { id: 'productMatrix' as ActiveTab, label: 'Product Matrix', icon: Layers },
     { id: 'demos' as ActiveTab, label: 'Demos & Gaps', icon: Presentation },
     { id: 'partners' as ActiveTab, label: isPartnerMode ? 'Partner Portal' : 'Partner Ecosystem', icon: Handshake },
     { id: 'mailbox' as ActiveTab, label: 'Mailbox & Collateral', icon: Mail },

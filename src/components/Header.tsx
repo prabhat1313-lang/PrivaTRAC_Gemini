@@ -6,6 +6,12 @@ import {
   ChevronDown,
   UserCheck,
   Sparkles,
+  Bell,
+  CheckCheck,
+  Layers,
+  CheckSquare2,
+  Building2,
+  X,
 } from 'lucide-react';
 import { useCrm } from '../context/CrmContext';
 import { UserRole } from '../types/crm';
@@ -14,9 +20,10 @@ import { SalesOpsAgentModal } from './SalesOps/SalesOpsAgentModal';
 interface HeaderProps {
   onOpenAddAccount?: () => void;
   onOpenReminders?: () => void;
+  onNavigateTab?: (tab: any) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab }) => {
   const {
     currentUser,
     setCurrentUser,
@@ -25,12 +32,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount }) => {
     onBehalfOfUser,
     setOnBehalfOfUser,
     resetToSeedData,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationRead,
+    markAllNotificationsRead,
   } = useCrm();
 
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [behalfMenuOpen, setBehalfMenuOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [isSalesOpsModalOpen, setIsSalesOpsModalOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activeNotifTab, setActiveNotifTab] = useState<'product' | 'task' | 'account'>('product');
 
   const availableRoles: UserRole[] = [
     'Sales Owner',
@@ -209,6 +222,156 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount }) => {
               isOpen={isSalesOpsModalOpen}
               onClose={() => setIsSalesOpsModalOpen(false)}
             />
+
+            {/* Top-Right Notifications Center */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+                title="System and Update Notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden text-xs">
+                  {/* Header */}
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-slate-700" />
+                      <span className="font-semibold text-slate-900">Notifications</span>
+                      {unreadNotificationsCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-indigo-100 text-indigo-700 font-medium">
+                          {unreadNotificationsCount} unread
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={markAllNotificationsRead}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                        title="Mark all as read"
+                      >
+                        <CheckCheck className="w-3 h-3" />
+                        Mark all read
+                      </button>
+                      <button
+                        onClick={() => setNotificationsOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Categorized Tabs */}
+                  <div className="flex items-center border-b border-slate-200 bg-white px-2 pt-1.5 gap-1">
+                    <button
+                      onClick={() => setActiveNotifTab('product')}
+                      className={`px-3 py-1.5 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                        activeNotifTab === 'product'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      Product & FRD
+                      {notifications.filter((n) => n.category === 'product' && !n.read).length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveNotifTab('task')}
+                      className={`px-3 py-1.5 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                        activeNotifTab === 'task'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <CheckSquare2 className="w-3.5 h-3.5" />
+                      Task Changes
+                      {notifications.filter((n) => n.category === 'task' && !n.read).length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveNotifTab('account')}
+                      className={`px-3 py-1.5 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                        activeNotifTab === 'account'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      Accounts
+                      {notifications.filter((n) => n.category === 'account' && !n.read).length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Notifications List */}
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                    {notifications.filter((n) => n.category === activeNotifTab).length === 0 ? (
+                      <div className="p-6 text-center text-slate-400">
+                        <p className="text-xs">No notifications in this category.</p>
+                      </div>
+                    ) : (
+                      notifications
+                        .filter((n) => n.category === activeNotifTab)
+                        .map((notif) => (
+                          <div
+                            key={notif.id}
+                            onClick={() => {
+                              markNotificationRead(notif.id);
+                              if (notif.targetType === 'matrix' && onNavigateTab) {
+                                onNavigateTab('productMatrix');
+                                setNotificationsOpen(false);
+                              } else if (notif.targetType === 'task' && onNavigateTab) {
+                                onNavigateTab('tasks');
+                                setNotificationsOpen(false);
+                              } else if (notif.targetType === 'account' && onNavigateTab) {
+                                onNavigateTab('accounts');
+                                setNotificationsOpen(false);
+                              }
+                            }}
+                            className={`p-3 hover:bg-slate-50 cursor-pointer transition flex items-start justify-between gap-3 ${
+                              !notif.read ? 'bg-indigo-50/40' : ''
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-slate-800 text-xs">
+                                  {notif.title}
+                                </span>
+                                {!notif.read && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-600 line-clamp-2">
+                                {notif.message}
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(notif.timestamp).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Reset Button */}
             <div className="relative">

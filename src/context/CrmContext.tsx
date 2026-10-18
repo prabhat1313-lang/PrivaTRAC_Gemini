@@ -46,7 +46,27 @@ import {
   InteractionTag,
   User,
   UserRole,
+  SubmissionChecklistItem,
+  ReviewScheduleItem,
+  SowRequirementRow,
+  ComplianceStatus,
+  ProductMatrixRequirement,
+  ProductContextVersion,
+  CrmNotification,
+  MatrixHierarchyLevel,
+  AvailabilityStatus,
+  ProductMatrixTag,
+  LinkedFRD,
 } from '../types/crm';
+import {
+  INITIAL_PRODUCT_MATRIX_REQUIREMENTS,
+  INITIAL_PRODUCT_CONTEXT_VERSIONS,
+  INITIAL_NOTIFICATIONS,
+  INITIAL_MATRIX_HIERARCHY,
+  INITIAL_AVAILABILITY_STATUSES,
+  INITIAL_PRODUCT_MATRIX_TAGS,
+  COMPLEMENTARY_PARTNER_TOOLS,
+} from '../data/productMatrixData';
 import {
   calculateAccountValue,
   calculateDealValue,
@@ -226,6 +246,55 @@ interface CrmContextType {
   bulkImportAccounts: (importedAccounts: any[]) => number;
   bulkImportContacts: (importedContacts: any[]) => number;
   bulkImportTasks: (importedTasks: any[]) => number;
+
+  // Product Requirements Matrix
+  productMatrixRequirements: ProductMatrixRequirement[];
+  addProductMatrixRequirement: (req: Omit<ProductMatrixRequirement, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateProductMatrixRequirement: (req: ProductMatrixRequirement) => void;
+  deleteProductMatrixRequirement: (id: string) => void;
+  linkFrdToRequirement: (reqId: string, frd: LinkedFRD) => void;
+
+  // Product Context Knowledge Base (Admin & Pre-Sales)
+  productContextVersions: ProductContextVersion[];
+  activeContextVersion: ProductContextVersion;
+  createContextVersion: (version: Omit<ProductContextVersion, 'id' | 'createdAt'>) => void;
+  revertContextVersion: (versionId: string) => void;
+  updateDraftContextVersion: (versionId: string, content: string, changeSummary: string) => void;
+  commitDraftContextVersion: (versionId: string) => void;
+
+  // Configurable Hierarchy & Admin Status/Tags
+  matrixHierarchyLevels: MatrixHierarchyLevel[];
+  updateMatrixHierarchyLevels: (levels: MatrixHierarchyLevel[]) => void;
+  matrixAvailabilityStatuses: AvailabilityStatus[];
+  setMatrixAvailabilityStatuses: React.Dispatch<React.SetStateAction<AvailabilityStatus[]>>;
+  matrixTags: ProductMatrixTag[];
+  setMatrixTags: React.Dispatch<React.SetStateAction<ProductMatrixTag[]>>;
+
+  // Notification Center
+  notifications: CrmNotification[];
+  unreadNotificationsCount: number;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  addNotification: (notif: Omit<CrmNotification, 'id' | 'timestamp' | 'read'>) => void;
+
+  // Scope of Work (SoW) & RFP Ingestion
+  convertSowToExcel: (accountId: string, sowContent?: string) => Promise<SowRequirementRow[]>;
+  generatePreliminaryRemarks: (accountId: string) => Promise<void>;
+  updateSowRow: (accountId: string, rowId: string, updates: Partial<SowRequirementRow>) => void;
+  approveFinalSow: (accountId: string) => void;
+  processRfpExtractionTasks: (
+    accountId: string,
+    documentName: string,
+    data: {
+      checklistItems: SubmissionChecklistItem[];
+      legalItems: ReviewScheduleItem[];
+      deliveryItems: ReviewScheduleItem[];
+      commercialItems: ReviewScheduleItem[];
+      infraItems: ReviewScheduleItem[];
+      otherItems: ReviewScheduleItem[];
+      sowText?: string;
+    }
+  ) => void;
 }
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
@@ -246,8 +315,26 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [demos, setDemos] = useState<Demo[]>(INITIAL_DEMOS);
   const [collaterals, setCollaterals] = useState<Collateral[]>(INITIAL_COLLATERAL);
   const [partnerSwotList, setPartnerSwotList] = useState<PartnerSWOT[]>(INITIAL_PARTNER_SWOT);
-  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(INITIAL_EXCHANGE_RATES);
   const [adminAuditTrail, setAdminAuditTrail] = useState<AuditEntry[]>(INITIAL_ADMIN_AUDIT_TRAIL);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(INITIAL_EXCHANGE_RATES);
+
+  // Product Matrix state
+  const [productMatrixRequirements, setProductMatrixRequirements] = useState<ProductMatrixRequirement[]>(INITIAL_PRODUCT_MATRIX_REQUIREMENTS);
+
+  // Product Context Knowledge Base state
+  const [productContextVersions, setProductContextVersions] = useState<ProductContextVersion[]>(INITIAL_PRODUCT_CONTEXT_VERSIONS);
+  const activeContextVersion = useMemo(() => {
+    return productContextVersions.find((v) => v.isActive) || productContextVersions[0];
+  }, [productContextVersions]);
+
+  // Hierarchy & Tags state
+  const [matrixHierarchyLevels, setMatrixHierarchyLevels] = useState<MatrixHierarchyLevel[]>(INITIAL_MATRIX_HIERARCHY);
+  const [matrixAvailabilityStatuses, setMatrixAvailabilityStatuses] = useState<AvailabilityStatus[]>(INITIAL_AVAILABILITY_STATUSES);
+  const [matrixTags, setMatrixTags] = useState<ProductMatrixTag[]>(INITIAL_PRODUCT_MATRIX_TAGS);
+
+  // Notification state
+  const [notifications, setNotifications] = useState<CrmNotification[]>(INITIAL_NOTIFICATIONS);
+  const unreadNotificationsCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   // Initial Filter defaults to Financial Year to Date (April 1, 2026 to today)
   const defaultFilters: FilterState = {
@@ -1776,6 +1863,636 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTasks.length;
   };
 
+  // -------------------------------------------------------------
+  // Notification Management
+  // -------------------------------------------------------------
+  const markNotificationRead = (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const addNotification = (notif: Omit<CrmNotification, 'id' | 'timestamp' | 'read'>) => {
+    const newN: CrmNotification = {
+      ...notif,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications((prev) => [newN, ...prev]);
+  };
+
+  // -------------------------------------------------------------
+  // Product Context Knowledge Base Management
+  // -------------------------------------------------------------
+  const createContextVersion = (versionData: Omit<ProductContextVersion, 'id' | 'createdAt'>) => {
+    const newV: ProductContextVersion = {
+      ...versionData,
+      id: `ctx-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      isActive: versionData.isActive ?? false,
+    };
+    setProductContextVersions((prev) => {
+      let updated = prev;
+      if (newV.isActive) {
+        updated = updated.map((v) => ({ ...v, isActive: false }));
+      }
+      return [newV, ...updated];
+    });
+    addNotification({
+      category: 'product',
+      title: `Product Context Version Created: ${newV.version}`,
+      message: `${newV.changeSummary} (${currentUser.name})`,
+      targetId: newV.id,
+      targetType: 'matrix',
+    });
+  };
+
+  const revertContextVersion = (versionId: string) => {
+    const target = productContextVersions.find((v) => v.id === versionId);
+    if (!target) return;
+    setProductContextVersions((prev) =>
+      prev.map((v) => ({
+        ...v,
+        isActive: v.id === versionId,
+      }))
+    );
+    addNotification({
+      category: 'product',
+      title: `Product Context Restored: ${target.version}`,
+      message: `Active knowledge base reverted to version ${target.version} by ${currentUser.name}.`,
+      targetId: target.id,
+      targetType: 'matrix',
+    });
+  };
+
+  const updateDraftContextVersion = (versionId: string, content: string, changeSummary: string) => {
+    setProductContextVersions((prev) =>
+      prev.map((v) => (v.id === versionId ? { ...v, content, changeSummary } : v))
+    );
+  };
+
+  const commitDraftContextVersion = (versionId: string) => {
+    setProductContextVersions((prev) =>
+      prev.map((v) => ({
+        ...v,
+        isActive: v.id === versionId,
+        isDraft: v.id === versionId ? false : v.isDraft,
+      }))
+    );
+    const target = productContextVersions.find((v) => v.id === versionId);
+    addNotification({
+      category: 'product',
+      title: `Context Version Committed: ${target?.version || 'Active'}`,
+      message: `Draft context changes were committed and published by ${currentUser.name}.`,
+      targetId: versionId,
+      targetType: 'matrix',
+    });
+  };
+
+  // -------------------------------------------------------------
+  // Product Matrix Management
+  // -------------------------------------------------------------
+  const addProductMatrixRequirement = (req: Omit<ProductMatrixRequirement, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newReq: ProductMatrixRequirement = {
+      ...req,
+      id: `req-mat-${Date.now()}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setProductMatrixRequirements((prev) => [newReq, ...prev]);
+  };
+
+  const updateProductMatrixRequirement = (req: ProductMatrixRequirement) => {
+    const now = new Date().toISOString();
+    setProductMatrixRequirements((prev) =>
+      prev.map((r) => (r.id === req.id ? { ...req, updatedAt: now } : r))
+    );
+  };
+
+  const deleteProductMatrixRequirement = (id: string) => {
+    setProductMatrixRequirements((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const linkFrdToRequirement = (reqId: string, frd: LinkedFRD) => {
+    const now = new Date().toISOString();
+    setProductMatrixRequirements((prev) =>
+      prev.map((r) => {
+        if (r.id !== reqId) return r;
+        const wasShipped = frd.status === 'Shipped';
+        return {
+          ...r,
+          linkedFrd: frd,
+          availabilityStatus: wasShipped ? 'Fully Available' : r.availabilityStatus,
+          updatedAt: now,
+        };
+      })
+    );
+
+    addNotification({
+      category: 'product',
+      title: `FRD Linked: ${frd.id} (${frd.status})`,
+      message: `${frd.title} mapped to requirement. Target release: ${frd.targetRelease || 'Next Release'}`,
+      targetId: reqId,
+      targetType: 'matrix',
+    });
+  };
+
+  const updateMatrixHierarchyLevels = (levels: MatrixHierarchyLevel[]) => {
+    setMatrixHierarchyLevels(levels);
+  };
+
+  // -------------------------------------------------------------
+  // Scope of Work (SoW) & AI Compliance
+  // -------------------------------------------------------------
+  const convertSowToExcel = async (accountId: string, sowContent?: string): Promise<SowRequirementRow[]> => {
+    const targetAccount = accounts.find((a) => a.id === accountId);
+    if (!targetAccount) return [];
+
+    const sampleClauses = [
+      {
+        clauseNumber: '3.1.1',
+        category: 'Differential Privacy & Math',
+        text: 'The solution must enforce differential privacy (bounded epsilon <= 1.0) on statistical aggregation queries to prevent reconstruction attacks.',
+      },
+      {
+        clauseNumber: '3.1.2',
+        category: 'Format-Preserving Encryption',
+        text: 'PAN numbers, National Identifiers (Aadhaar/SSN), and CVV must be pseudonymized using AES-FF1 or AES-FF3-1 format-preserving encryption maintaining numeric length and Luhn checksum.',
+      },
+      {
+        clauseNumber: '3.2.1',
+        category: 'AI Guardrails & Prompt Security',
+        text: 'Must provide real-time prompt injection defense and toxic prompt interception for enterprise LLM endpoints with < 15ms latency.',
+      },
+      {
+        clauseNumber: '3.3.4',
+        category: 'Hardware Security Module (HSM)',
+        text: 'Master cryptographic keys must reside in a dedicated FIPS 140-3 Level 3 Hardware Security Module with automated key rotation and PKCS#11 API support.',
+      },
+      {
+        clauseNumber: '4.1.2',
+        category: 'Perimeter Web Security (WAF)',
+        text: 'Must incorporate automated Layer-7 OWASP Top 10 Web Application Firewall and distributed denial-of-service (DDoS) mitigation at perimeter ingress.',
+      },
+      {
+        clauseNumber: '4.2.5',
+        category: 'Endpoint Data Loss Prevention (DLP)',
+        text: 'Endpoint workstation agent required to restrict clipboard copying, USB external storage exfiltration, and local screen capture of unmasked PII datasets.',
+      },
+      {
+        clauseNumber: '5.1.0',
+        category: 'Digital Asset Management (DAM)',
+        text: 'Centralized media asset repository with role-based access control, digital rights management, and watermarking for client marketing collaterals.',
+      },
+      {
+        clauseNumber: '5.2.2',
+        category: 'Browser Security & Isolation',
+        text: 'Enterprise browser agent required to enforce isolated browsing tabs, URL categorization, and session watermarking for administrative console access.',
+      },
+      {
+        clauseNumber: '6.1.1',
+        category: 'SAML & Enterprise Identity',
+        text: 'Integration with corporate Identity Provider (Azure AD / Okta / PingFederate) via SAML 2.0 and OpenID Connect with mandatory MFA.',
+      },
+      {
+        clauseNumber: '6.2.0',
+        category: 'Air-Gapped Deployment',
+        text: 'Software components must be deployable in an air-gapped on-premises Kubernetes/OpenShift cluster with zero internet outbound connectivity.',
+      },
+    ];
+
+    const generatedRows: SowRequirementRow[] = sampleClauses.map((c, idx) => ({
+      id: `sow-row-${Date.now()}-${idx}`,
+      clauseNumber: c.clauseNumber,
+      category: c.category,
+      requirementText: c.text,
+      complianceStatus: 'Partially Compliant',
+      preliminaryRemarks: 'Extracted from uploaded Scope of Work. Ready for preliminary remarks generation.',
+      qaReview: '',
+      finalResponse: '',
+      confidenceScore: 'Medium',
+      citationSnippet: '',
+    }));
+
+    const now = new Date().toISOString();
+    updateAccount({
+      ...targetAccount,
+      sowRequirements: generatedRows,
+      sowLastConvertedAt: now,
+    });
+
+    addNotification({
+      category: 'account',
+      title: `SoW Converted to Excel: ${targetAccount.name}`,
+      message: `Generated ${generatedRows.length} structured requirement rows with Compliance, Remarks, QA, and Final Response columns.`,
+      targetId: targetAccount.id,
+      targetType: 'account',
+    });
+
+    return generatedRows;
+  };
+
+  const generatePreliminaryRemarks = async (accountId: string) => {
+    const targetAccount = accounts.find((a) => a.id === accountId);
+    if (!targetAccount || !targetAccount.sowRequirements || targetAccount.sowRequirements.length === 0) return;
+
+    const updatedRows: SowRequirementRow[] = targetAccount.sowRequirements.map((row) => {
+      const textLower = row.requirementText.toLowerCase();
+
+      // Case 1: WAF / DDoS
+      if (textLower.includes('waf') || textLower.includes('ddos') || textLower.includes('owasp top 10')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['WAF'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Perimeter L7 web security is outside native privacy kernel scope. Best fulfilled by certified ecosystem partner: ${partner.topVendor} (${partner.solutionName}).`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'Partner Inferred',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Perimeter Web Application Firewall (WAF) is non-native. Fulfilled by Cloudflare Magic WAF or AWS WAF."',
+          finalResponse: `Compliant via Ecosystem Partner (${partner.topVendor}). PrivaSapien integrates with client existing ${partner.solutionName} at API reverse-proxy ingress.`,
+        };
+      }
+
+      // Case 2: EDR / Endpoint Telemetry
+      if (textLower.includes('edr') || textLower.includes('endpoint security') || textLower.includes('endpoint telemetry')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['EDR'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Endpoint runtime detection is non-native. Recommended to fulfill via ${partner.topVendor} (${partner.solutionName}).`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'Partner Inferred',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Endpoint Detection & Response (EDR) fulfilled by CrowdStrike Falcon or Microsoft Defender."',
+          finalResponse: `Compliant via Partner (${partner.topVendor}). Syslog CEF telemetry forwarded directly to client EDR/SIEM.`,
+        };
+      }
+
+      // Case 3: Endpoint DLP / Clipboard / USB
+      if (textLower.includes('dlp') || textLower.includes('clipboard') || textLower.includes('usb')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['DLP'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Endpoint agent restrictions provided via partner ${partner.topVendor} (${partner.solutionName}); PrivaSapien provides server-side watermarking.`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'Partner Inferred',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Endpoint Data Loss Prevention (DLP) fulfilled by Forcepoint DLP or Symantec DLP."',
+          finalResponse: `Partially Compliant. PrivaSapien enforces server-level data redaction; workstation clipboard/USB controls enforced via certified partner ${partner.topVendor}.`,
+        };
+      }
+
+      // Case 4: DAM / Digital Asset Management
+      if (textLower.includes('dam') || textLower.includes('digital asset') || textLower.includes('media asset')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['DAM'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Digital Asset Management fulfilled via enterprise connector with ${partner.topVendor} (${partner.solutionName}).`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'Partner Inferred',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Digital Asset Management (DAM) fulfilled by Bynder DAM."',
+          finalResponse: `Compliant via Integration. Supported via OAuth 2.0 connector with ${partner.solutionName}.`,
+        };
+      }
+
+      // Case 5: Browser Security / Isolation
+      if (textLower.includes('browser security') || textLower.includes('browser agent') || textLower.includes('isolated browsing')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['Browser Security'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Browser-level isolation and screen watermarking fulfilled via certified partner ${partner.topVendor} (${partner.solutionName}).`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'Partner Inferred',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Browser Security Agent / Isolation fulfilled by Island Enterprise Browser."',
+          finalResponse: `Compliant via Partner. PrivaSapien web portal certified for deployment within ${partner.solutionName} enterprise enclave.`,
+        };
+      }
+
+      // Case 6: Hardware Security Module (HSM)
+      if (textLower.includes('hsm') || textLower.includes('hardware security module') || textLower.includes('fips 140-3')) {
+        const partner = COMPLEMENTARY_PARTNER_TOOLS['HSM'];
+        return {
+          ...row,
+          complianceStatus: 'Partially Compliant',
+          preliminaryRemarks: `Software KMS native; Hardware FIPS 140-3 HSM fulfilled via PKCS#11 bridge with ${partner.topVendor} (${partner.solutionName}).`,
+          complementaryTool: partner.solutionName,
+          complementaryToolRationale: partner.rationale,
+          confidenceScore: 'High',
+          citationSnippet: 'Product Context (v1.0.0) § 5: "Hardware Security Module (HSM) appliances provided by certified OEM partners (Thales Luna HSM)."',
+          finalResponse: `Compliant. PrivaSapien KMS interfaces directly with client ${partner.solutionName} using PKCS#11 cryptographic drivers.`,
+        };
+      }
+
+      // Case 7: Native Features (Differential Privacy, FPE, AI Guardrails, SAML, Air-Gap)
+      return {
+        ...row,
+        complianceStatus: 'Fully Compliant',
+        preliminaryRemarks: 'Fully supported out-of-the-box by certified native product capability.',
+        confidenceScore: 'High',
+        citationSnippet: 'Product Context (v1.0.0) § 1-4: PrivaSapien Enterprise Core Suite native feature verified.',
+        finalResponse: 'Compliant. Standard off-the-shelf capability certified in product baseline v4.2.',
+      };
+    });
+
+    updateAccount({
+      ...targetAccount,
+      sowRequirements: updatedRows,
+    });
+
+    // Cross-Account Product Matrix Sync & Deduplication
+    setProductMatrixRequirements((prevMatrix) => {
+      const updatedMatrix = [...prevMatrix];
+
+      updatedRows.forEach((row) => {
+        const existingIdx = updatedMatrix.findIndex((m) => {
+          const mText = (m.title + ' ' + m.description).toLowerCase();
+          const rText = (row.category + ' ' + row.requirementText).toLowerCase();
+          if (m.title.toLowerCase().includes(row.category.toLowerCase())) return true;
+          if (rText.includes('differential privacy') && mText.includes('differential privacy')) return true;
+          if (rText.includes('fips 140-3') && mText.includes('fips 140-3')) return true;
+          if (rText.includes('prompt injection') && mText.includes('prompt injection')) return true;
+          if (rText.includes('clipboard') && mText.includes('clipboard')) return true;
+          if (rText.includes('waf') && mText.includes('waf')) return true;
+          return false;
+        });
+
+        if (existingIdx >= 0) {
+          const existing = updatedMatrix[existingIdx];
+          updatedMatrix[existingIdx] = {
+            ...existing,
+            accountMappings: {
+              ...existing.accountMappings,
+              [targetAccount.id]: {
+                accountId: targetAccount.id,
+                accountName: targetAccount.name,
+                complianceStatus: row.complianceStatus,
+                preliminaryRemarks: row.preliminaryRemarks,
+                finalResponse: row.finalResponse,
+                tenderRef: `Clause ${row.clauseNumber}`,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            updatedAt: new Date().toISOString(),
+          };
+        } else {
+          const newMatrixReq: ProductMatrixRequirement = {
+            id: `req-mat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            productFamily: targetAccount.productFamily || 'Privacy Enhancing Technologies (PETs)',
+            product: targetAccount.product || 'PrivaSapien Anonymizer Pro',
+            module: row.category,
+            title: row.requirementText.slice(0, 75) + '...',
+            description: row.requirementText,
+            availabilityStatus: row.complianceStatus === 'Fully Compliant' ? 'Fully Available' : 'Partially Available',
+            tags: row.complianceStatus === 'Fully Compliant' ? ['Requires Configuration'] : ['Requires Integration'],
+            accountMappings: {
+              [targetAccount.id]: {
+                accountId: targetAccount.id,
+                accountName: targetAccount.name,
+                complianceStatus: row.complianceStatus,
+                preliminaryRemarks: row.preliminaryRemarks,
+                finalResponse: row.finalResponse,
+                tenderRef: `Clause ${row.clauseNumber}`,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          updatedMatrix.push(newMatrixReq);
+        }
+      });
+
+      return updatedMatrix;
+    });
+
+    addNotification({
+      category: 'product',
+      title: `Preliminary Remarks Generated: ${targetAccount.name}`,
+      message: `Matched ${updatedRows.length} requirements against active Product Context. Synced to Product Requirements Matrix.`,
+      targetId: targetAccount.id,
+      targetType: 'account',
+    });
+  };
+
+  const updateSowRow = (accountId: string, rowId: string, updates: Partial<SowRequirementRow>) => {
+    const targetAccount = accounts.find((a) => a.id === accountId);
+    if (!targetAccount || !targetAccount.sowRequirements) return;
+
+    const newRows = targetAccount.sowRequirements.map((r) =>
+      r.id === rowId ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
+    );
+
+    updateAccount({
+      ...targetAccount,
+      sowRequirements: newRows,
+    });
+  };
+
+  const approveFinalSow = (accountId: string) => {
+    const targetAccount = accounts.find((a) => a.id === accountId);
+    if (!targetAccount || !targetAccount.sowRequirements) return;
+
+    updateAccount({
+      ...targetAccount,
+      sowFinalApproved: true,
+    });
+
+    const currentActive = activeContextVersion;
+    const nextVer = '1.1.0-draft';
+    const draftContent = `${currentActive.content}\n\n## 6. Approved Client Commitments: ${targetAccount.name}\n- Certified on ${new Date().toLocaleDateString()}.\n- Added compliance commitments for ${targetAccount.sowRequirements.length} clauses.`;
+
+    const newDraft: ProductContextVersion = {
+      id: `ctx-${Date.now()}`,
+      version: nextVer,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.name,
+      changeSummary: `Draft spawned from approved Final SoW for ${targetAccount.name}`,
+      sourceSoWAccountId: targetAccount.id,
+      sourceSoWAccountName: targetAccount.name,
+      content: draftContent,
+      isActive: false,
+      isDraft: true,
+    };
+
+    setProductContextVersions((prev) => [newDraft, ...prev]);
+
+    addNotification({
+      category: 'product',
+      title: `Final SoW Approved: ${targetAccount.name}`,
+      message: `Spawned draft Product Context (${nextVer}). Review diff and commit in Admin Knowledge Base.`,
+      targetId: newDraft.id,
+      targetType: 'matrix',
+    });
+  };
+
+  const processRfpExtractionTasks = (
+    accountId: string,
+    documentName: string,
+    data: {
+      checklistItems: SubmissionChecklistItem[];
+      legalItems: ReviewScheduleItem[];
+      deliveryItems: ReviewScheduleItem[];
+      commercialItems: ReviewScheduleItem[];
+      infraItems: ReviewScheduleItem[];
+      otherItems: ReviewScheduleItem[];
+      sowText?: string;
+    }
+  ) => {
+    const targetAccount = accounts.find((a) => a.id === accountId);
+    if (!targetAccount) return;
+
+    const tctDate = new Date();
+    tctDate.setDate(tctDate.getDate() + 7);
+    const tctStr = tctDate.toISOString().split('T')[0];
+
+    const checklistTask: Task = {
+      id: `task-rfp-chk-${Date.now()}`,
+      name: `Submission Docs Checklist: ${targetAccount.name}`,
+      accountId,
+      relatedSection: 'Technical Proposal',
+      description: `Review and fulfill all mandatory tender submission documents (${data.checklistItems.length} items) for ${documentName}.`,
+      creatorId: currentUser.id,
+      assigneeId: targetAccount.owners.preSales ? 'user-presales-1' : currentUser.id,
+      tct: tctStr,
+      status: 'Pending',
+      priority: 'High',
+      comments: [
+        {
+          id: `cmt-${Date.now()}`,
+          author: 'AI Extraction Engine',
+          timestamp: new Date().toISOString(),
+          text: `Auto-extracted ${data.checklistItems.length} submission documents from ${documentName}. Owners assigned (OEM / SI Partner / Both).`,
+        },
+      ],
+      documents: [],
+      isActivity: false,
+      reviewType: 'submission_checklist',
+      submissionChecklist: data.checklistItems,
+      sourceDocumentName: documentName,
+    };
+
+    const legalTask: Task = {
+      id: `task-rfp-leg-${Date.now()}`,
+      name: `Legal Review: ${targetAccount.name}`,
+      accountId,
+      relatedSection: 'Commercial Proposal',
+      description: `Legal clauses review for ${documentName} (${data.legalItems.length} clauses including Indemnity, Liability, and Dispute Resolution).`,
+      creatorId: currentUser.id,
+      assigneeId: targetAccount.owners.leader ? 'user-leader-1' : currentUser.id,
+      tct: tctStr,
+      status: 'Pending',
+      priority: 'High',
+      comments: [],
+      documents: [],
+      isActivity: false,
+      reviewType: 'legal_review',
+      reviewSchedule: data.legalItems,
+      sourceDocumentName: documentName,
+    };
+
+    const deliveryTask: Task = {
+      id: `task-rfp-del-${Date.now()}`,
+      name: `Delivery Review: ${targetAccount.name}`,
+      accountId,
+      relatedSection: 'Technical Proposal',
+      description: `Project timelines, milestone schedules, and manpower requirements review for ${documentName}.`,
+      creatorId: currentUser.id,
+      assigneeId: targetAccount.owners.solutionEngineer ? 'user-se-1' : currentUser.id,
+      tct: tctStr,
+      status: 'Pending',
+      priority: 'Medium',
+      comments: [],
+      documents: [],
+      isActivity: false,
+      reviewType: 'delivery_review',
+      reviewSchedule: data.deliveryItems,
+      sourceDocumentName: documentName,
+    };
+
+    const commercialTask: Task = {
+      id: `task-rfp-com-${Date.now()}`,
+      name: `Commercial Format & Terms Review: ${targetAccount.name}`,
+      accountId,
+      relatedSection: 'Commercial Proposal',
+      description: `Commercial pricing formats, payment milestones, BG validity, and tax schedules review for ${documentName}.`,
+      creatorId: currentUser.id,
+      assigneeId: targetAccount.owners.sales ? 'user-sales-1' : currentUser.id,
+      tct: tctStr,
+      status: 'Pending',
+      priority: 'High',
+      comments: [],
+      documents: [],
+      isActivity: false,
+      reviewType: 'commercial_review',
+      reviewSchedule: data.commercialItems,
+      sourceDocumentName: documentName,
+    };
+
+    const infraTask: Task = {
+      id: `task-rfp-inf-${Date.now()}`,
+      name: `Infrastructure & Architecture Review: ${targetAccount.name}`,
+      accountId,
+      relatedSection: 'Infra & SBOM',
+      description: `Hardware, sizing, OS/DB compatibility, SBOM, and security architecture review for ${documentName}.`,
+      creatorId: currentUser.id,
+      assigneeId: targetAccount.owners.solutionEngineer ? 'user-se-1' : currentUser.id,
+      tct: tctStr,
+      status: 'Pending',
+      priority: 'Medium',
+      comments: [],
+      documents: [],
+      isActivity: false,
+      reviewType: 'infra_architecture_review',
+      reviewSchedule: data.infraItems,
+      sourceDocumentName: documentName,
+    };
+
+    const otherTasks: Task[] = [];
+    if (data.otherItems && data.otherItems.length > 0) {
+      otherTasks.push({
+        id: `task-rfp-oth-${Date.now()}`,
+        name: `Other Requirements Review: ${targetAccount.name}`,
+        accountId,
+        relatedSection: 'General',
+        description: `Review of miscellaneous tender clauses not categorized in standard schedules (${data.otherItems.length} items).`,
+        creatorId: currentUser.id,
+        assigneeId: currentUser.id,
+        tct: tctStr,
+        status: 'Pending',
+        priority: 'Low',
+        comments: [],
+        documents: [],
+        isActivity: false,
+        reviewType: 'other_requirements',
+        reviewSchedule: data.otherItems,
+        sourceDocumentName: documentName,
+      });
+    }
+
+    setTasks((prev) => [checklistTask, legalTask, deliveryTask, commercialTask, infraTask, ...otherTasks, ...prev]);
+
+    // Automatically route SoW text into the account's SoW section (not a separate task)
+    convertSowToExcel(accountId, data.sowText);
+
+    addNotification({
+      category: 'task',
+      title: `RFP Ingested: ${targetAccount.name}`,
+      message: `Created 5 specialized review tasks and populated Scope of Work for ${documentName}.`,
+      targetId: targetAccount.id,
+      targetType: 'account',
+    });
+  };
+
   return (
     <CrmContext.Provider
       value={{
@@ -1860,6 +2577,38 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bulkImportAccounts,
         bulkImportContacts,
         bulkImportTasks,
+        // Product Requirements Matrix
+        productMatrixRequirements,
+        addProductMatrixRequirement,
+        updateProductMatrixRequirement,
+        deleteProductMatrixRequirement,
+        linkFrdToRequirement,
+        // Product Context Knowledge Base
+        productContextVersions,
+        activeContextVersion,
+        createContextVersion,
+        revertContextVersion,
+        updateDraftContextVersion,
+        commitDraftContextVersion,
+        // Hierarchy & Status/Tags
+        matrixHierarchyLevels,
+        updateMatrixHierarchyLevels,
+        matrixAvailabilityStatuses,
+        setMatrixAvailabilityStatuses,
+        matrixTags,
+        setMatrixTags,
+        // Notifications
+        notifications,
+        unreadNotificationsCount,
+        markNotificationRead,
+        markAllNotificationsRead,
+        addNotification,
+        // SoW & RFP Ingestion
+        convertSowToExcel,
+        generatePreliminaryRemarks,
+        updateSowRow,
+        approveFinalSow,
+        processRfpExtractionTasks,
       }}
     >
       {children}

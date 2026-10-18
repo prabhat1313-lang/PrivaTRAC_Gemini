@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   CheckCircle2,
@@ -25,11 +25,13 @@ import { Account, Contact, Task } from '../../types/crm';
 interface SalesOpsAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialPrompt?: string;
 }
 
 export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
   isOpen,
   onClose,
+  initialPrompt = '',
 }) => {
   const {
     accounts,
@@ -66,14 +68,13 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
     ? `${onBehalfOfUser.name} (${currentUser.name})`
     : currentUser.name;
 
-  const handleGeneratePlan = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!prompt.trim()) return;
+  const executePlan = async (instructionText: string) => {
+    if (!instructionText.trim()) return;
 
     setIsPlanning(true);
     setExecutionSuccess(null);
     try {
-      const result = await parseSalesOpsInstruction(prompt.trim(), {
+      const result = await parseSalesOpsInstruction(instructionText.trim(), {
         accounts: accounts.map((a) => ({
           id: a.id,
           name: a.name,
@@ -112,6 +113,25 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
     } finally {
       setIsPlanning(false);
     }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPrompt && initialPrompt.trim()) {
+        setPrompt(initialPrompt);
+        executePlan(initialPrompt);
+      } else {
+        setPrompt('');
+        setPlanResult(null);
+        setItems([]);
+        setExecutionSuccess(null);
+      }
+    }
+  }, [isOpen, initialPrompt]);
+
+  const handleGeneratePlan = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await executePlan(prompt);
   };
 
   const handleToggleConfirm = (id: string) => {

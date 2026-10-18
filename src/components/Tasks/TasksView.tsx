@@ -39,6 +39,7 @@ import {
   CornerDownRight,
   ListTree,
   Sliders,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
 
@@ -499,6 +500,28 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     >
                       <Paperclip className="w-2.5 h-2.5 text-slate-500" />
                       <span>{task.documents.length}</span>
+                    </span>
+                  )}
+
+                  {/* RFP Submission Checklist Badge */}
+                  {task.submissionChecklist && task.submissionChecklist.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 font-semibold"
+                      title="RFP Submission Docs Checklist Schedule"
+                    >
+                      <FileSpreadsheet className="w-2.5 h-2.5 text-indigo-600" />
+                      <span>Checklist ({task.submissionChecklist.length})</span>
+                    </span>
+                  )}
+
+                  {/* RFP Review Schedule Badge */}
+                  {task.reviewSchedule && task.reviewSchedule.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 font-semibold"
+                      title="RFP Specialized Review Schedule"
+                    >
+                      <FileSpreadsheet className="w-2.5 h-2.5 text-indigo-600" />
+                      <span>Review ({task.reviewSchedule.length} clauses)</span>
                     </span>
                   )}
                 </div>

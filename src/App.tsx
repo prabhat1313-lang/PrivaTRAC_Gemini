@@ -16,6 +16,7 @@ import { PartnersView } from './components/Partners/PartnersView';
 import { MailboxView } from './components/Mailbox/MailboxView';
 import { ReportsView } from './components/Reports/ReportsView';
 import { AdminView } from './components/Admin/AdminView';
+import { ProductMatrixView } from './components/ProductMatrix/ProductMatrixView';
 import { AddAccountModal } from './components/Accounts/AddAccountModal';
 import { AccountDetailModal } from './components/Accounts/AccountDetailModal';
 import { AuditTrailModal } from './components/Accounts/AuditTrailModal';
@@ -33,6 +34,7 @@ const AppContent: React.FC = () => {
       <Header
         onOpenAddAccount={() => setIsAddAccountOpen(true)}
         onOpenReminders={() => setActiveTab('reports')}
+        onNavigateTab={(tab) => setActiveTab(tab)}
       />
 
       {/* Navigation Sub-Header */}
@@ -44,6 +46,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'accounts' && <AccountsView />}
         {activeTab === 'contacts' && <ContactsView />}
         {activeTab === 'tasks' && <TasksView />}
+        {activeTab === 'productMatrix' && <ProductMatrixView />}
         {activeTab === 'demos' && <DemosView />}
         {activeTab === 'partners' && <PartnersView />}
         {activeTab === 'mailbox' && <MailboxView />}

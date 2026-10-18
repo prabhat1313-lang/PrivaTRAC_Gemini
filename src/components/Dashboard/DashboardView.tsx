@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FunnelView } from './FunnelView';
 import { FiltersBar } from './FiltersBar';
 import { AiPipelineAdvice } from './AiPipelineAdvice';
+import { RfpTracker } from './RfpTracker';
 import { FocusArea } from './FocusArea';
 import { AccountStage } from '../../types/crm';
 
@@ -9,7 +10,7 @@ export const DashboardView: React.FC = () => {
   const [selectedStage, setSelectedStage] = useState<AccountStage | undefined>(undefined);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-200">
       {/* 1. Multi-Select Filters Bar */}
       <FiltersBar />
 
@@ -22,7 +23,10 @@ export const DashboardView: React.FC = () => {
       {/* 3. AI Pipeline Intelligence & Strategic Suggestions */}
       <AiPipelineAdvice />
 
-      {/* 4. Focus Area with 70/30 Task Prioritization */}
+      {/* 4. RFP Tracker & Deadlines Radar (Timeline & Calendar View) */}
+      <RfpTracker />
+
+      {/* 5. Focus Area with 70/30 Task Prioritization */}
       <FocusArea />
     </div>
   );

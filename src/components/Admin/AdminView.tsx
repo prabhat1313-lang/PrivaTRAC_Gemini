@@ -26,10 +26,14 @@ import { PartnersAdminTab } from './PartnersAdminTab';
 import { CollateralsAdminTab } from './CollateralsAdminTab';
 import { DataImportAdminTab } from './DataImportAdminTab';
 import { AdminAuditTab } from './AdminAuditTab';
-import { History } from 'lucide-react';
+import { ProductKnowledgeBaseAdminTab } from './ProductKnowledgeBaseAdminTab';
+import { ProductMatrixConfigAdminTab } from './ProductMatrixConfigAdminTab';
+import { History, BookOpen } from 'lucide-react';
 
 export type AdminSubTab =
   | 'general'
+  | 'knowledgeBase'
+  | 'matrixConfig'
   | 'users'
   | 'roles'
   | 'fields'
@@ -40,7 +44,19 @@ export type AdminSubTab =
   | 'audit';
 
 export const AdminView: React.FC = () => {
-  const { currentUser, users, teams, roles, workflows, customFields, collaterals, partnerSwotList, adminAuditTrail } = useCrm();
+  const {
+    currentUser,
+    users,
+    teams,
+    roles,
+    workflows,
+    customFields,
+    collaterals,
+    partnerSwotList,
+    adminAuditTrail,
+    productContextVersions,
+    productMatrixRequirements,
+  } = useCrm();
   const [activeSubTab, setActiveSubTab] = useState<AdminSubTab>('general');
 
   const adminTabs: {
@@ -51,6 +67,19 @@ export const AdminView: React.FC = () => {
     badge?: string;
   }[] = [
     { id: 'general', label: 'General & Exchange Rates', icon: Coins, badge: 'Base: INR' },
+    {
+      id: 'knowledgeBase',
+      label: 'Product Context & KB',
+      icon: BookOpen,
+      count: productContextVersions?.length,
+      badge: 'v1.0',
+    },
+    {
+      id: 'matrixConfig',
+      label: 'Product Matrix Config',
+      icon: Layers,
+      count: productMatrixRequirements?.length,
+    },
     { id: 'users', label: 'Users & Teams', icon: Users, count: users?.length },
     { id: 'roles', label: 'Roles & RBAC Matrix', icon: ShieldCheck, count: roles?.length },
     { id: 'fields', label: 'Field Configurations', icon: Sliders, count: customFields?.length },
@@ -215,6 +244,8 @@ export const AdminView: React.FC = () => {
       {/* Tab Panels */}
       <div>
         {activeSubTab === 'general' && <GeneralSettingsAdminTab />}
+        {activeSubTab === 'knowledgeBase' && <ProductKnowledgeBaseAdminTab />}
+        {activeSubTab === 'matrixConfig' && <ProductMatrixConfigAdminTab />}
         {activeSubTab === 'users' && <UsersAdminTab />}
         {activeSubTab === 'roles' && <RolesAdminTab />}
         {activeSubTab === 'fields' && <FieldConfigsAdminTab />}

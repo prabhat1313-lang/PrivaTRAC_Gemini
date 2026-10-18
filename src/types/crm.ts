@@ -138,9 +138,15 @@ export interface Account {
     ai: number;
   };
   documents?: AccountDocument[];
+  sowRequirements?: SowRequirementRow[];
+  sowFinalApproved?: boolean;
+  sowLastConvertedAt?: string;
 }
 
 export type DocumentCategory =
+  | 'Scope of Work / Requirements'
+  | 'RFP / Corrigendum'
+  | 'Other Documents'
   | 'Proposal'
   | 'Contract'
   | 'Security & Compliance'
@@ -156,6 +162,7 @@ export interface AccountDocument {
   category: DocumentCategory;
   url?: string;
   type?: string;
+  extractedReviewId?: string;
 }
 
 export type ContactTag =
@@ -244,8 +251,18 @@ export interface Task {
   };
   effectiveDate?: string;
   isBackDated?: boolean;
-  fieldAuditTrail?: AuditEntry[];
   parentTaskId?: string; // If set, this task is a Sub-Task of the designated parent Task
+  fieldAuditTrail?: AuditEntry[];
+  reviewType?:
+    | 'submission_checklist'
+    | 'legal_review'
+    | 'delivery_review'
+    | 'commercial_review'
+    | 'infra_architecture_review'
+    | 'other_requirements';
+  submissionChecklist?: SubmissionChecklistItem[];
+  reviewSchedule?: ReviewScheduleItem[];
+  sourceDocumentName?: string;
 }
 
 export interface DemoComment {
@@ -326,3 +343,159 @@ export interface FilterState {
   startDate?: string;
   endDate?: string;
 }
+
+// ==========================================
+// RFP / Corrigendum Review & Task Models
+// ==========================================
+export type ChecklistOwnerType = 'OEM' | 'SI Partner' | 'Both';
+
+export interface SubmissionChecklistItem {
+  id: string;
+  documentName: string;
+  description: string;
+  mandatory: boolean;
+  owner: ChecklistOwnerType;
+  assignedPartnerId?: string;
+  assignedPartnerName?: string;
+  status: 'Pending' | 'In Progress' | 'Ready' | 'Submitted';
+  uploadedDocId?: string;
+  notes?: string;
+}
+
+export interface ReviewScheduleItem {
+  id: string;
+  category: string;
+  clauseRef: string;
+  title: string;
+  description: string;
+  ownerOrRole: string;
+  assignedPartnerName?: string;
+  riskOrImpact: 'High' | 'Medium' | 'Low' | 'Standard';
+  status: 'Pending Review' | 'Reviewed' | 'Flagged' | 'Approved';
+  notes?: string;
+}
+
+// ==========================================
+// Scope of Work (SoW) & AI Compliance
+// ==========================================
+export type ComplianceStatus =
+  | 'Fully Compliant'
+  | 'Partially Compliant'
+  | 'Non-Compliant'
+  | 'Not Applicable';
+
+export interface SowRequirementRow {
+  id: string;
+  clauseNumber: string;
+  category: string;
+  requirementText: string;
+  complianceStatus: ComplianceStatus;
+  preliminaryRemarks: string;
+  qaReview: string;
+  finalResponse: string;
+  complementaryTool?: string;
+  complementaryToolRationale?: string;
+  confidenceScore?: 'High' | 'Medium' | 'Partner Inferred';
+  citationSnippet?: string;
+  matrixRequirementId?: string;
+  updatedAt?: string;
+}
+
+// ==========================================
+// Product Requirements Matrix
+// ==========================================
+export type AvailabilityStatus =
+  | 'Fully Available'
+  | 'Partially Available'
+  | 'Not Available';
+
+export type ProductMatrixTag =
+  | 'Requires Configuration'
+  | 'Requires Integration'
+  | 'Requires Customization'
+  | 'Not Applicable'
+  | 'Architecturally Infeasible';
+
+export interface LinkedFRD {
+  id: string;
+  title: string;
+  linkUrl?: string;
+  status: 'Draft' | 'Approved' | 'In Development' | 'Shipped';
+  targetRelease?: string;
+  owner?: string;
+}
+
+export interface AccountRequirementMapping {
+  accountId: string;
+  accountName: string;
+  complianceStatus: ComplianceStatus | string;
+  preliminaryRemarks?: string;
+  finalResponse?: string;
+  tenderRef?: string;
+  updatedAt?: string;
+}
+
+export interface ProductMatrixRequirement {
+  id: string;
+  productFamily: string;
+  product: string;
+  module: string;
+  title: string;
+  description: string;
+  availabilityStatus: AvailabilityStatus;
+  tags: ProductMatrixTag[];
+  linkedFrd?: LinkedFRD;
+  accountMappings: Record<string, AccountRequirementMapping>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// Product Context Knowledge Base (Admin)
+// ==========================================
+export interface ProductContextVersion {
+  id: string;
+  version: string;
+  createdAt: string;
+  createdBy: string;
+  changeSummary: string;
+  sourceSoWAccountId?: string;
+  sourceSoWAccountName?: string;
+  content: string; // Markdown or detailed structured specifications
+  isActive: boolean;
+  isDraft?: boolean;
+}
+
+// ==========================================
+// Notification System
+// ==========================================
+export interface CrmNotification {
+  id: string;
+  category: 'product' | 'task' | 'account';
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  targetId?: string;
+  targetType?: 'account' | 'task' | 'matrix' | 'frd';
+}
+
+// ==========================================
+// Configurable Matrix Hierarchy
+// ==========================================
+export interface MatrixHierarchyLevel {
+  id: string;
+  name: string;
+  label?: string;
+  order: number;
+  enabled?: boolean;
+  description?: string;
+}
+
+export interface ComplementaryPartnerTool {
+  solutionName: string;
+  topVendor: string;
+  rationale: string;
+  alternativeVendors: string[];
+}
+
