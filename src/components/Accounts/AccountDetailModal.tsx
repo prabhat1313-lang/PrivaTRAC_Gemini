@@ -18,12 +18,14 @@ import {
   ReviewScheduleItem,
 } from '../../types/crm';
 import { useCrm } from '../../context/CrmContext';
+import { useRfp } from '../../context/RfpContext';
 import { COMPLEMENTARY_PARTNER_TOOLS } from '../../data/productMatrixData';
 import { TasksView } from '../Tasks/TasksView';
 import { DemoDetailBalloon } from '../Demos/DemoDetailBalloon';
 import { ContactEditModal } from '../Contacts/ContactEditModal';
 import { ItemAuditTrailModal } from '../common/ItemAuditTrailModal';
 import { ProfileCompletionBadge } from '../Profile/ProfileCompletionBadge';
+import { AccountUpdateJourneyModal } from './AccountUpdateJourneyModal';
 import {
   calculateAccountValue,
   calculateDealValue,
@@ -43,6 +45,8 @@ import {
   X,
   Sparkles,
   ShieldCheck,
+  Compass,
+  ArrowRight,
   Cpu,
   History,
   Check,
@@ -71,6 +75,7 @@ import {
   CheckCheck,
   Search,
   Filter,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface AccountDetailModalProps {
@@ -102,11 +107,29 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
     activeContextVersion,
   } = useCrm();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'tasks' | 'documents' | 'demos'>('overview');
+  const {
+    tenders: rfpTenders,
+    tasks: rfpTasks,
+    comments: rfpComments,
+    addTask: addRfpTask,
+    updateTaskStatus: updateRfpTaskStatus,
+    addComment: addRfpComment,
+    setSelectedTenderId,
+  } = useRfp();
+
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'contacts' | 'tasks' | 'documents' | 'demos' | 'rfpChapter'
+  >('overview');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [selectedDemoId, setSelectedDemoId] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [auditTargetContact, setAuditTargetContact] = useState<Contact | null>(null);
+  const [isJourneyModalOpen, setIsJourneyModalOpen] = useState(false);
+
+  // Quick RFP Task & Comment draft states
+  const [newRfpTaskTitle, setNewRfpTaskTitle] = useState('');
+  const [newRfpTaskPriority, setNewRfpTaskPriority] = useState<'Urgent' | 'High' | 'Medium' | 'Low'>('High');
+  const [newRfpCommentText, setNewRfpCommentText] = useState('');
 
   // Form state for edits
   const [formData, setFormData] = useState<Account>(account);
@@ -533,6 +556,18 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
   const accountContacts = contacts.filter((c) => c.accountId === account.id);
   const accountTasks = tasks.filter((t) => t.accountId === account.id);
   const accountDemos = demos.filter((d) => d.accountId === account.id);
+  const accountTenders = rfpTenders.filter(
+    (t) =>
+      t.accountId === account.id ||
+      t.clientName.toLowerCase().includes(account.name.toLowerCase()) ||
+      account.name.toLowerCase().includes(t.clientName.toLowerCase())
+  );
+  const accountRfpTasks = rfpTasks.filter((t) =>
+    accountTenders.some((tender) => tender.id === t.rfpId)
+  );
+  const accountRfpComments = rfpComments.filter((c) =>
+    accountTenders.some((tender) => tender.id === c.rfpId)
+  );
 
   const handleFieldSave = (fieldName: keyof Account, newValue: any) => {
     const oldValue = account[fieldName];
@@ -592,6 +627,14 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsJourneyModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 shadow-2xs transition cursor-pointer"
+              title="Launch guided account profile completion wizard with AI enrichment"
+            >
+              <Compass className="w-3.5 h-3.5 text-indigo-200" />
+              <span>Complete Profile Journey</span>
+            </button>
             <ProfileCompletionBadge compact />
             <button
               onClick={() => onOpenAudit(account)}
@@ -674,37 +717,60 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
               {accountDemos.length}
             </span>
           </button>
+          <button
+            onClick={() => setActiveTab('rfpChapter')}
+            className={`py-3 border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'rfpChapter'
+                ? 'border-indigo-600 text-indigo-900 font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
+            <span>RFP Chapter & Tenders</span>
+            <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200">
+              {accountTenders.length}
+            </span>
+          </button>
         </div>
 
         {/* Modal Body Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6 text-xs">
           {activeTab === 'overview' && (
             <>
-              {/* AI Enrichment & Profile Completion Strip */}
-              <div className="p-4 rounded-xl bg-[#faf8fd] border border-purple-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              {/* AI Enrichment & Guided Account Update Journey Strip */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-200/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span className="font-semibold text-slate-900 text-sm">
-                      AI Profile Assistant & Provenance
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+                    </div>
+                    <span className="font-bold text-slate-900 text-sm">
+                      Guided Account Profile Journey
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-800 border border-purple-200/60">
-                      Mock Adapter
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Step-by-Step AI Enriched
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      PrivaTRAC Governed
                     </span>
                   </div>
-                  <p className="text-slate-600 text-[11px] mt-0.5">
-                    Profile Completion: <strong>{account.profileCompletion.human}% human-entered</strong> ·{' '}
-                    <strong>{account.profileCompletion.ai}% AI-suggested</strong>
+                  <p className="text-slate-600 text-[11px] mt-1">
+                    Profile Completion: <strong>{liveAccount.profileCompletion.human}% human-entered</strong> ·{' '}
+                    <strong>{liveAccount.profileCompletion.ai}% AI-suggested</strong> ({liveAccount.profileCompletion.human + liveAccount.profileCompletion.ai}% Total)
                   </p>
                 </div>
 
-                <button
-                  onClick={() => enrichAccountWithAi(account.id)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium text-xs hover:bg-slate-800 shadow-2xs flex items-center gap-1.5 shrink-0"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                  Run AI Enrichment
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsJourneyModalOpen(true)}
+                    className="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>Launch Guided Journey</span>
+                    <ArrowRight className="w-3 h-3 text-indigo-300" />
+                  </button>
+                </div>
               </div>
 
               {/* Authoritative Valuation Engine Box */}
@@ -1977,6 +2043,327 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
               )}
             </div>
           )}
+
+          {/* Tab 6: RFP Chapter & Tenders Bi-Directional Synchronization */}
+          {activeTab === 'rfpChapter' && (
+            <div className="space-y-6">
+              {/* RFP Tenders for this Account */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Active & Historical RFP Tenders for {formData.name}
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {accountTenders.length} Tender Workspace{accountTenders.length === 1 ? '' : 's'} Linked
+                  </span>
+                </div>
+
+                {accountTenders.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3">
+                    {accountTenders.map((tender) => {
+                      const crValue = tender.estimatedValue / 10000000;
+                      return (
+                        <div
+                          key={tender.id}
+                          className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-indigo-300 transition space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                  {tender.tenderNumber}
+                                </span>
+                                <span className="text-slate-300">·</span>
+                                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                                  {tender.status}
+                                </span>
+                                <span className="text-slate-300">·</span>
+                                <span className="text-xs font-bold text-slate-900 tabular-nums">
+                                  ₹{crValue.toFixed(2)} Cr TCV
+                                </span>
+                              </div>
+                              <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                                {tender.title}
+                              </h4>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTenderId(tender.id);
+                                onClose();
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
+                            >
+                              <span>Open in RFP Work Desk</span>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100 text-xs">
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-slate-400">
+                                Submission Deadline
+                              </div>
+                              <div className="font-semibold text-slate-800 flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-indigo-600" />
+                                <span>{tender.submissionDeadline}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-slate-400">
+                                Pre-Sales Lead
+                              </div>
+                              <div className="font-semibold text-slate-800">
+                                {tender.preSalesLead}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-slate-400">
+                                Primary SI Partner
+                              </div>
+                              <div className="font-semibold text-slate-800 truncate">
+                                {tender.primarySiPartner.split(' ')[0]}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-slate-400">
+                                Tender Readiness
+                              </div>
+                              <div className="font-bold text-emerald-600 tabular-nums">
+                                {tender.overallCompletion}% Complete
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-xs">
+                    No active RFP tenders currently mapped to this account. You can link this account from the RFP Work Desk header.
+                  </div>
+                )}
+              </div>
+
+              {/* Synced RFP Tasks Section */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Synced RFP Action Items & Milestone Tasks ({accountRfpTasks.length})
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Bi-directional sync with RFP Work Desk clusters
+                  </span>
+                </div>
+
+                {/* Inline Fast Task Creator */}
+                {accountTenders.length > 0 && (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center gap-2 text-xs">
+                    <input
+                      type="text"
+                      value={newRfpTaskTitle}
+                      onChange={(e) => setNewRfpTaskTitle(e.target.value)}
+                      placeholder="Add an urgent RFP follow-up or technical review task..."
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <select
+                      value={newRfpTaskPriority}
+                      onChange={(e) =>
+                        setNewRfpTaskPriority(
+                          e.target.value as 'Urgent' | 'High' | 'Medium' | 'Low'
+                        )
+                      }
+                      className="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold"
+                    >
+                      <option value="Urgent">Urgent</option>
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newRfpTaskTitle.trim()) return;
+                        addRfpTask({
+                          rfpId: accountTenders[0].id,
+                          sectionId: 'general',
+                          title: newRfpTaskTitle.trim(),
+                          description: `Task logged from Account context chapter for ${formData.name}.`,
+                          priority: newRfpTaskPriority,
+                          status: 'Pending',
+                          assignee: accountTenders[0].solutionEngineer || 'Vikram Malhotra',
+                          createdBy: currentUser?.name || 'Pre-Sales Lead',
+                          createdRole: currentUser?.role || 'Leader',
+                          dueDate: accountTenders[0].submissionDeadline,
+                        });
+                        setNewRfpTaskTitle('');
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs hover:bg-indigo-700 transition cursor-pointer shrink-0"
+                    >
+                      Add Task
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {accountRfpTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between gap-3 text-xs hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateRfpTaskStatus(
+                              task.id,
+                              task.status === 'Completed' ? 'Pending' : 'Completed',
+                              currentUser?.name || 'Pre-Sales Lead'
+                            )
+                          }
+                          className="cursor-pointer text-slate-400 hover:text-emerald-600 transition"
+                        >
+                          {task.status === 'Completed' ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <div className="w-4 h-4 rounded border-2 border-slate-300 hover:border-indigo-600" />
+                          )}
+                        </button>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
+                                task.priority === 'Urgent'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : task.priority === 'High'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
+                            <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200/60 uppercase">
+                              Sec: {task.sectionId}
+                            </span>
+                          </div>
+                          <p
+                            className={`font-semibold text-slate-900 truncate mt-0.5 ${
+                              task.status === 'Completed' ? 'line-through text-slate-400' : ''
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 text-[11px] text-slate-500">
+                        <span className="hidden sm:inline">Assignee: {task.assignee}</span>
+                        <span className="text-slate-300">·</span>
+                        <span>Due: {task.dueDate}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {accountRfpTasks.length === 0 && (
+                    <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 rounded-lg">
+                      No RFP tasks logged for this account yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Synced RFP Comments & Discussions Ledger */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      RFP Discussion Ledger & Technical Comments ({accountRfpComments.length})
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Live pre-sales notes & clarifications
+                  </span>
+                </div>
+
+                {accountTenders.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newRfpCommentText}
+                      onChange={(e) => setNewRfpCommentText(e.target.value)}
+                      placeholder="Log an account-specific pre-sales note or technical update..."
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newRfpCommentText.trim()) return;
+                        addRfpComment({
+                          rfpId: accountTenders[0].id,
+                          sectionId: 'general',
+                          author: currentUser?.name || 'Pre-Sales Lead',
+                          authorRole: currentUser?.role || 'Leader',
+                          avatar:
+                            currentUser?.avatar ||
+                            'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces',
+                          text: newRfpCommentText.trim(),
+                        });
+                        setNewRfpCommentText('');
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition cursor-pointer shrink-0"
+                    >
+                      Post Note
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {accountRfpComments.map((comm) => (
+                    <div
+                      key={comm.id}
+                      className="p-3 bg-white rounded-lg border border-slate-200/90 shadow-2xs space-y-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={comm.avatar}
+                            alt={comm.author}
+                            className="w-5 h-5 rounded-full object-cover"
+                          />
+                          <span className="font-bold text-slate-900">{comm.author}</span>
+                          <span className="text-[10px] text-slate-500">({comm.authorRole})</span>
+                          {comm.clauseId && (
+                            <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/70 px-1.5 py-0.2 rounded">
+                              {comm.clauseId}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(comm.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed pl-7">{comm.text}</p>
+                    </div>
+                  ))}
+
+                  {accountRfpComments.length === 0 && (
+                    <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 rounded-lg">
+                      No RFP technical comments logged yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
@@ -2310,6 +2697,15 @@ export const AccountDetailModal: React.FC<AccountDetailModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Guided Account Profile Completion Wizard */}
+      {isJourneyModalOpen && (
+        <AccountUpdateJourneyModal
+          account={liveAccount}
+          isOpen={isJourneyModalOpen}
+          onClose={() => setIsJourneyModalOpen(false)}
+        />
       )}
     </div>
   );

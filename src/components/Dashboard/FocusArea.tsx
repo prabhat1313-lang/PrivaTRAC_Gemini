@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useCrm } from '../../context/CrmContext';
+import { useRfp } from '../../context/RfpContext';
 import { Task, TaskStatus } from '../../types/crm';
 import {
   calculateAccountValue,
@@ -27,6 +28,7 @@ import {
 
 export const FocusArea: React.FC = () => {
   const { tasks, accounts, completeTask, canCompleteTask, isPartnerMode, activePartnerName } = useCrm();
+  const { tasks: rfpTasks } = useRfp();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
@@ -60,15 +62,31 @@ export const FocusArea: React.FC = () => {
     return tasks;
   }, [tasks, isPartnerMode, activePartnerName, accountMap]);
 
-  // Rolling 7-day Weekly Summary
+  // Rolling 7-day Weekly Summary - Unified across CRM Deals and RFP Work Desk
   const weeklySummary = useMemo(() => {
-    const totalOpen = visibleTasks.filter((t) => !t.completedAt).length;
-    const overdue = visibleTasks.filter((t) => t.status === 'Overdue').length;
-    const completedThisWeek = visibleTasks.filter((t) => t.completedAt).length;
-    const highPriority = visibleTasks.filter((t) => t.priority === 'High' && !t.completedAt).length;
+    const totalOpenCrm = visibleTasks.filter((t) => !t.completedAt).length;
+    const overdueCrm = visibleTasks.filter((t) => t.status === 'Overdue').length;
+    const completedThisWeekCrm = visibleTasks.filter((t) => t.completedAt).length;
+    const highPriorityCrm = visibleTasks.filter((t) => t.priority === 'High' && !t.completedAt).length;
 
-    return { totalOpen, overdue, completedThisWeek, highPriority };
-  }, [visibleTasks]);
+    const now = new Date();
+    const totalOpenRfp = rfpTasks.filter((t) => t.status !== 'Completed').length;
+    const overdueRfp = rfpTasks.filter((t) => t.status !== 'Completed' && new Date(t.dueDate) < now).length;
+    const completedRfp = rfpTasks.filter((t) => t.status === 'Completed').length;
+    const highPriorityRfp = rfpTasks.filter(
+      (t) => (t.priority === 'High' || t.priority === 'Urgent') && t.status !== 'Completed'
+    ).length;
+
+    return {
+      totalOpen: totalOpenCrm + totalOpenRfp,
+      overdue: overdueCrm + overdueRfp,
+      completedThisWeek: completedThisWeekCrm + completedRfp,
+      highPriority: highPriorityCrm + highPriorityRfp,
+      crmTotal: visibleTasks.length,
+      rfpTotal: rfpTasks.length,
+      unifiedTotal: visibleTasks.length + rfpTasks.length,
+    };
+  }, [visibleTasks, rfpTasks]);
 
   // Scored and ordered tasks
   const prioritizedTasks = useMemo(() => {
@@ -156,9 +174,14 @@ export const FocusArea: React.FC = () => {
               Task urgency evaluated against target completion times
             </p>
           </div>
-          <span className="text-[11px] text-slate-500 font-medium">
-            Formula: 70% TCT Urgency + 30% Account Priority
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-700 font-medium bg-white px-2 py-0.5 rounded border border-slate-200">
+              Unified: {weeklySummary.unifiedTotal} Tasks ({weeklySummary.crmTotal} CRM · {weeklySummary.rfpTotal} RFP)
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              Formula: 70% TCT Urgency + 30% Account Priority
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">

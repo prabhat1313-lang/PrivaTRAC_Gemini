@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useCrm } from '../../context/CrmContext';
+import { Account } from '../../types/crm';
 import {
   Sparkles,
   RefreshCw,
@@ -12,9 +13,12 @@ import {
   CheckCircle2,
   Building2,
   Zap,
+  Compass,
+  Check,
 } from 'lucide-react';
 import { formatCurrencyValue } from '../../utils/calculations';
 import { SalesOpsAgentModal } from '../SalesOps/SalesOpsAgentModal';
+import { AccountUpdateJourneyModal } from '../Accounts/AccountUpdateJourneyModal';
 
 interface ActionRecommendation {
   id: number;
@@ -29,29 +33,24 @@ interface ActionRecommendation {
 }
 
 export const AiPipelineAdvice: React.FC = () => {
-  const { pipelineMetrics } = useCrm();
+  const { accounts } = useCrm();
   const [refreshCount, setRefreshCount] = useState(0);
-  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
-  const [copilotPrompt, setCopilotPrompt] = useState('');
   const [activeRecId, setActiveRecId] = useState<number | null>(null);
+  const [copilotPrompt, setCopilotPrompt] = useState<string>('');
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [journeyAccount, setJourneyAccount] = useState<Account | null>(null);
 
   const aiSummary = useMemo(() => {
-    const totalCount = pipelineMetrics.totalAccounts;
-    const criticalCount = pipelineMetrics.stageCounts['Critical'] || 0;
-    const matureCount = pipelineMetrics.stageCounts['Mature'] || 0;
-    const nurturingCount = pipelineMetrics.stageCounts['Nurturing'] || 0;
-    const totalINRFormatted = formatCurrencyValue(pipelineMetrics.totalAccountValueINR, 'INR');
-
-    return `Synthesizing ${totalCount} active accounts representing ${totalINRFormatted} in total weighted adoption value. High concentration of enterprise momentum in Critical (${criticalCount}) and Mature (${matureCount}) stages, with ${nurturingCount} accounts in early validation. BFSI and Healthcare sectors demonstrate the highest adoption multipliers (Innovators/Early Adopters). Immediate revenue closure relies on executing technical SBOM submissions for State Bank of India and DBS Bank.`;
-  }, [pipelineMetrics, refreshCount]);
+    return `PrivaSapien AI Pipeline Intelligence analyzed active deals across India, APAC, and EMEA. Key findings: 2 high-velocity deals require urgent human-in-the-loop decisions (SBI PO negotiations, HDFC Life re-engagement). 1 account presents a 2.0x ARR acceleration via genomic PETs telemetry (Apollo Health). Strategic partners (Wipro, TCS) have active alignments on 6 tenders with zero compliance leaks.`;
+  }, [refreshCount]);
 
   const recommendations: ActionRecommendation[] = [
     {
       id: 1,
       target: 'State Bank of India (Critical)',
-      recommendation: 'Close Tier-1 PO negotiations before FY Q3 procurement deadline.',
-      rationale: 'Overdue FIPS-140-3 cryptography attestation is the single blocker to commercial seal.',
-      timing: 'Within next 24 hours',
+      recommendation: 'Complete pre-bid RFP annexures and advance stage to Closed Won upon PO sign-off.',
+      rationale: 'Commercial pricing approved with Wipro lead SI; final board sanction pending this cycle.',
+      timing: 'Immediate (Next 24h)',
       tag: 'Urgent Closure',
       tagColor: {
         bg: 'bg-rose-50',
@@ -61,18 +60,18 @@ export const AiPipelineAdvice: React.FC = () => {
       },
       impact: '₹12.5 Cr Pipeline Unlocked',
       copilotPrompt:
-        "Close PO negotiations for State Bank of India: update winning stance to 'Under PO Negotiations' and add urgent follow-up task 'Deliver FIPS-140-3 cryptography attestation before FY Q3 deadline'",
+        "Advance State Bank of India deal: set stage to 'Closed Won', update stance to 'Won/PO Received', and assign handover tasks to Pre-Sales and SE teams",
     },
     {
       id: 2,
       target: 'HDFC Life & Digital (Stale Warning)',
-      recommendation: 'Initiate automated re-engagement sequence with Chief Risk Officer.',
-      rationale: 'Zero recorded interactions for over 25 days; deal risk elevated to Stale.',
-      timing: 'Before Friday 17:00 IST',
+      recommendation: 'Schedule emergency re-engagement meeting with Chief Risk Officer regarding ISO-42001 governance.',
+      rationale: 'No logged touchpoints in 18 days; competitor pushing uncertified anonymization claims.',
+      timing: 'Within 48 hours',
       tag: 'Deal Rescue',
       tagColor: {
         bg: 'bg-amber-50',
-        text: 'text-amber-800',
+        text: 'text-amber-700',
         border: 'border-amber-200',
         dot: 'bg-amber-500',
       },
@@ -150,10 +149,42 @@ export const AiPipelineAdvice: React.FC = () => {
     },
   ];
 
+  // Helper to map recommendation target to account in CRM state
+  const getAccountForRec = (rec: ActionRecommendation): Account | undefined => {
+    const targetLower = rec.target.toLowerCase();
+    return (
+      accounts.find((a) => {
+        const aName = a.name.toLowerCase();
+        if (targetLower.includes('state bank') || targetLower.includes('sbi')) {
+          return aName.includes('state bank') || aName.includes('sbi');
+        }
+        if (targetLower.includes('hdfc')) return aName.includes('hdfc');
+        if (targetLower.includes('apollo')) return aName.includes('apollo');
+        if (targetLower.includes('dbs')) return aName.includes('dbs');
+        if (targetLower.includes('grab')) return aName.includes('grab');
+        if (targetLower.includes('wipro')) {
+          return (
+            a.partners?.some((p) => p.toLowerCase().includes('wipro')) ||
+            aName.includes('state bank')
+          );
+        }
+        return aName.includes(targetLower.split(' ')[0]);
+      }) || accounts[0]
+    );
+  };
+
   const handleTriggerCopilot = (rec: ActionRecommendation) => {
     setActiveRecId(rec.id);
     setCopilotPrompt(rec.copilotPrompt);
     setIsCopilotOpen(true);
+  };
+
+  const handleLaunchJourney = (rec: ActionRecommendation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const targetAcc = getAccountForRec(rec);
+    if (targetAcc) {
+      setJourneyAccount(targetAcc);
+    }
   };
 
   return (
@@ -167,16 +198,16 @@ export const AiPipelineAdvice: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-slate-900 text-sm">Pipeline Intelligence & Recommendations</h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                Generated by AI · Advisory
+              <span className="text-[11px] text-slate-500 font-normal">
+                Generated by AI · Advisory Mode
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                 <Sparkles className="w-2.5 h-2.5 text-indigo-500" />
-                Copilot Integrated
+                Copilot & Guided Journey
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Triggered automatically on dataset modification · Click any action to execute with SalesOps Copilot
+              Triggered automatically on dataset modification · Click actions to execute with SalesOps Copilot or launch Guided Account Update
             </p>
           </div>
         </div>
@@ -197,21 +228,41 @@ export const AiPipelineAdvice: React.FC = () => {
 
       {/* Top 6 Explainable Strategic Recommendations */}
       <div className="mt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1">
-          <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            Top 6 Explainable Action Recommendations
-          </h4>
-          <span className="text-[11px] text-slate-500 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            Click any recommendation to trigger SalesOps Copilot
-          </span>
+        {/* Child 1: Focused Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3.5 gap-2 pb-1 border-b border-slate-200/60">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              Top 6 Explainable Action Recommendations
+            </h4>
+            <span className="text-[11px] text-slate-400">·</span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              Human-in-the-Loop PrivaTRAC Validation
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px] text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Click card for Copilot</span>
+            </span>
+            <span>/</span>
+            <span className="flex items-center gap-1.5 text-indigo-600 font-medium">
+              <Compass className="w-3 h-3 text-indigo-500" />
+              <span>Launch Account Update Journey</span>
+            </span>
+          </div>
         </div>
 
         {/* Selected Element: 6 Action Recommendation Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {recommendations.slice(0, 6).map((rec) => {
             const isSelected = activeRecId === rec.id;
+            const targetAccount = getAccountForRec(rec);
+            const profileCompletion = targetAccount?.profileCompletion
+              ? targetAccount.profileCompletion.human + targetAccount.profileCompletion.ai
+              : 75;
+
             return (
               <div
                 key={rec.id}
@@ -253,16 +304,22 @@ export const AiPipelineAdvice: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Impact Metric */}
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 mb-2">
-                    <TrendingUp className="w-3 h-3 text-emerald-600 shrink-0" />
-                    <span>Impact: {rec.impact}</span>
+                  {/* Impact Metric & Profile Progress Bar */}
+                  <div className="flex items-center justify-between text-[11px] mb-2 gap-2">
+                    <div className="flex items-center gap-1.5 font-medium text-emerald-700 truncate">
+                      <TrendingUp className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span className="truncate">Impact: {rec.impact}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 text-[10px] text-slate-500 font-mono">
+                      <span>Profile: {profileCompletion}%</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Footer and Interactive Copilot Action Trigger */}
-                <div className="pt-2.5 border-t border-slate-100 mt-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2">
+                {/* Footer and Interactive Action Triggers */}
+                <div className="pt-2.5 border-t border-slate-100 mt-1 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1 font-medium text-slate-600">
                       <Clock className="w-3 h-3 text-slate-400" />
                       {rec.timing}
@@ -273,24 +330,33 @@ export const AiPipelineAdvice: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Clickable Action Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTriggerCopilot(rec);
-                    }}
-                    className="w-full inline-flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white hover:from-indigo-900 hover:to-slate-800 border border-indigo-500/20 shadow-2xs group-hover:shadow transition-all duration-150 cursor-pointer"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 group-hover:rotate-12 transition-transform" />
-                      <span>Trigger Copilot</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-indigo-200 font-medium">
-                      <span>Work Action</span>
-                      <ArrowRight className="w-3 h-3 text-indigo-300 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
-                  </button>
+                  {/* Dual Action Buttons */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {/* Trigger Copilot */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTriggerCopilot(rec);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 border border-slate-800 shadow-2xs transition-all cursor-pointer"
+                      title="Trigger SalesOps Copilot to execute CRM pipeline stage or task mutations"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
+                      <span className="truncate">Copilot</span>
+                    </button>
+
+                    {/* Guided Profile Journey */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleLaunchJourney(rec, e)}
+                      className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all cursor-pointer"
+                      title="Launch guided step-by-step account profile completion wizard with AI enrichment"
+                    >
+                      <Compass className="w-3 h-3 text-indigo-600 shrink-0" />
+                      <span className="truncate">Profile Journey</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -307,7 +373,7 @@ export const AiPipelineAdvice: React.FC = () => {
           </span>
         </div>
         <span className="text-[10px] text-slate-400 font-mono">
-          SalesOps Copilot v2.4 · Guardrails Active
+          SalesOps Copilot & Account Journey v2.5 · Guardrails Active
         </span>
       </div>
 
@@ -317,6 +383,15 @@ export const AiPipelineAdvice: React.FC = () => {
         onClose={() => setIsCopilotOpen(false)}
         initialPrompt={copilotPrompt}
       />
+
+      {/* Guided Account Profile Completion Journey Modal */}
+      {journeyAccount && (
+        <AccountUpdateJourneyModal
+          account={journeyAccount}
+          isOpen={!!journeyAccount}
+          onClose={() => setJourneyAccount(null)}
+        />
+      )}
     </div>
   );
 };

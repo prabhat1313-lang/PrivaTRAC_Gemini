@@ -178,8 +178,16 @@ export const TasksView: React.FC<TasksViewProps> = ({
 
   // If in Partner role, show tasks tagged for this partner
   // If scoped to a specific account, filter exclusively for that account
+  // Strict Isolation: Do not display RFP tasks in the general CRM tasks module
   const visibleTasks = useMemo(() => {
-    let pool = tasks;
+    let pool = tasks.filter(
+      (t: any) =>
+        !t.isRfpTask &&
+        !t.rfpId &&
+        !t.isRfpWorkDeskTask &&
+        t.relatedSection !== 'RFP' &&
+        !t.rfpSubtask
+    );
     if (scopedAccountId) {
       pool = pool.filter((t) => t.accountId === scopedAccountId);
     }

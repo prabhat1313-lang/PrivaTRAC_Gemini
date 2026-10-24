@@ -1,6 +1,6 @@
 {
-  "summary": "Architectural evaluation of the 2 best approaches for Guided Profile Creation and a Header Help/Query Module. Details the Unified Dual-Mode Copilot approach (SalesOps Action + Contextual Help) versus the Decoupled Command Center approach, with complete user flows, multi-step profile wizard specs, and trade-off matrices.",
-  "updatedAt": "2026-10-18T08:48:44.490516576Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Revised implementation plan for Integrations Scope Review with auto-detected SoW-inferred integrations and approval toggles, strict exclusion of RFP tasks from the general CRM Tasks module while retaining full functional parity in RFP sections, and unified cross-module task reporting with CRM vs RFP breakdown indicators.",
+  "updatedAt":  "2026-10-24T09:08:55.054674603Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

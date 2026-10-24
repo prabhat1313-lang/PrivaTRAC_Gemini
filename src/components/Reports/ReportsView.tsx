@@ -18,9 +18,11 @@ import {
   calculateDealValue,
   formatCurrencyValue,
 } from '../../utils/calculations';
+import { useRfp } from '../../context/RfpContext';
 
 export const ReportsView: React.FC = () => {
   const { accounts, tasks, users, globalAuditTrail } = useCrm();
+  const { tasks: rfpTasks } = useRfp();
 
   const [activeReport, setActiveReport] = useState<
     'performance' | 'tat' | 'initiative' | 'backdated' | 'reminders' | 'master'
@@ -92,25 +94,58 @@ export const ReportsView: React.FC = () => {
     });
   }, [globalAuditTrail, auditEntityFilter, auditActorFilter, auditSearchQuery]);
 
-  // Turnaround Time (TAT) metrics
+  // Turnaround Time (TAT) metrics - Unified across CRM Deals and RFP Work Desk
   const tatStats = useMemo(() => {
+    // CRM Tasks
     const completedTasks = tasks.filter((t) => t.completedAt);
-    const onTime = completedTasks.filter((t) => t.status === 'Completed').length;
-    const late = completedTasks.filter((t) => t.status === 'Completed Late').length;
-    const overdue = tasks.filter((t) => t.status === 'Overdue').length;
-    const pending = tasks.filter((t) => t.status === 'Pending').length;
+    const onTimeCrm = completedTasks.filter((t) => t.status === 'Completed').length;
+    const lateCrm = completedTasks.filter((t) => t.status === 'Completed Late').length;
+    const overdueCrm = tasks.filter((t) => t.status === 'Overdue').length;
+    const pendingCrm = tasks.filter((t) => t.status === 'Pending').length;
 
-    return { onTime, late, overdue, pending, total: tasks.length };
-  }, [tasks]);
+    // RFP Work Desk Tasks
+    const now = new Date();
+    const completedRfp = rfpTasks.filter((t) => t.status === 'Completed');
+    const onTimeRfp = completedRfp.filter((t) => {
+      if (!t.resolvedAt) return true;
+      return new Date(t.resolvedAt) <= new Date(t.dueDate);
+    }).length;
+    const lateRfp = completedRfp.filter((t) => {
+      if (!t.resolvedAt) return false;
+      return new Date(t.resolvedAt) > new Date(t.dueDate);
+    }).length;
+    const overdueRfp = rfpTasks.filter((t) => {
+      if (t.status === 'Completed') return false;
+      return new Date(t.dueDate) < now;
+    }).length;
+    const pendingRfp = rfpTasks.filter((t) => {
+      if (t.status === 'Completed') return false;
+      return new Date(t.dueDate) >= now;
+    }).length;
 
-  // Initiative per user with custom leadership guidance and initiative thresholds
+    return {
+      onTime: onTimeCrm + onTimeRfp,
+      late: lateCrm + lateRfp,
+      overdue: overdueCrm + overdueRfp,
+      pending: pendingCrm + pendingRfp,
+      crmTotal: tasks.length,
+      rfpTotal: rfpTasks.length,
+      total: tasks.length + rfpTasks.length,
+    };
+  }, [tasks, rfpTasks]);
+
+  // Initiative per user with custom leadership guidance and initiative thresholds (unified across CRM & RFP)
   const initiativeStats = useMemo(() => {
     return users
       .filter((u) => u.role === 'Sales Owner' || u.role === 'Pre-Sales Owner' || u.role === 'Solution Engineer')
       .map((u) => {
-        const uTasks = tasks.filter((t) => t.assigneeId === u.id || t.creatorId === u.id);
-        const activities = uTasks.filter((t) => t.isActivity).length;
-        const assigned = uTasks.filter((t) => !t.isActivity).length;
+        const uCrmTasks = tasks.filter((t) => t.assigneeId === u.id || t.creatorId === u.id);
+        const uRfpTasks = rfpTasks.filter(
+          (t) => (t.assignee && t.assignee.includes(u.name)) || (t.createdBy && t.createdBy.includes(u.name))
+        );
+
+        const activities = uCrmTasks.filter((t) => t.isActivity).length;
+        const assigned = uCrmTasks.filter((t) => !t.isActivity).length + uRfpTasks.length;
         const total = activities + assigned;
         const actPct = total > 0 ? Math.round((activities / total) * 100) : 50;
         const asgPct = total > 0 ? Math.round((assigned / total) * 100) : 50;
@@ -132,7 +167,7 @@ export const ReportsView: React.FC = () => {
           hasInitiative,
         };
       });
-  }, [users, tasks]);
+  }, [users, tasks, rfpTasks]);
 
   // Daily Reminders
   const dailyReminders = useMemo(() => {
@@ -266,9 +301,14 @@ export const ReportsView: React.FC = () => {
                 Resolution performance evaluated against mandatory Target Completion Time (TCT)
               </p>
             </div>
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-              REP-02 Standard
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                Unified: {tatStats.total} Tasks ({tatStats.crmTotal} CRM · {tatStats.rfpTotal} RFP)
+              </span>
+              <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                REP-02 Standard
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">

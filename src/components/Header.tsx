@@ -12,8 +12,6 @@ import {
   CheckSquare2,
   Building2,
   X,
-  Search,
-  HelpCircle,
   User,
 } from 'lucide-react';
 import { useCrm } from '../context/CrmContext';
@@ -48,7 +46,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
   const [isSalesOpsModalOpen, setIsSalesOpsModalOpen] = useState(false);
   const [copilotModalMode, setCopilotModalMode] = useState<'actions' | 'help'>('actions');
   const [copilotInitialPrompt, setCopilotInitialPrompt] = useState('');
-  const [headerHelpQuery, setHeaderHelpQuery] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeNotifTab, setActiveNotifTab] = useState<'product' | 'task' | 'account'>('product');
@@ -61,12 +58,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
       localStorage.setItem('privasapien_onboarding_wizard_shown', 'true');
     }
   }, [currentUser.profileCompleted]);
-
-  const handleOpenHelpQuery = (queryText: string) => {
-    setCopilotModalMode('help');
-    setCopilotInitialPrompt(queryText);
-    setIsSalesOpsModalOpen(true);
-  };
 
   const availableRoles: UserRole[] = [
     'Sales Owner',
@@ -250,49 +241,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddAccount, onNavigateTab 
                 </div>
               )}
             </div>
-
-            {/* Header Help & Knowledge Query Search Input */}
-            <div className="relative hidden md:flex items-center">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
-              <input
-                type="text"
-                value={headerHelpQuery}
-                onChange={(e) => setHeaderHelpQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && headerHelpQuery.trim()) {
-                    handleOpenHelpQuery(headerHelpQuery);
-                  }
-                }}
-                placeholder="Ask Copilot or type a command... (Enter)"
-                className="pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52 lg:w-64 transition shadow-2xs"
-              />
-              {headerHelpQuery ? (
-                <button
-                  type="button"
-                  onClick={() => handleOpenHelpQuery(headerHelpQuery)}
-                  className="absolute right-2 p-0.5 text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                  title="Submit query to Copilot Guide"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <span className="absolute right-2 text-[10px] text-slate-400 font-mono pointer-events-none">↵</span>
-              )}
-            </div>
-
-            {/* Quick Help & Guide Button */}
-            <button
-              onClick={() => {
-                setCopilotModalMode('help');
-                setCopilotInitialPrompt('');
-                setIsSalesOpsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition shadow-2xs cursor-pointer"
-              title="Help Module & Guided Answers"
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span className="hidden xl:inline">Help & Guide</span>
-            </button>
 
             {/* SalesOps AI Agent Action Button */}
             <button

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Account } from '../../types/crm';
 import { useCrm } from '../../context/CrmContext';
+import { AccountUpdateJourneyModal } from './AccountUpdateJourneyModal';
 import {
   calculateAccountValue,
   calculateDealValue,
@@ -31,6 +32,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
 }) => {
   const { currentUser } = useCrm();
   const isPartnerUser = currentUser.role === 'Partner';
+  const [isJourneyOpen, setIsJourneyOpen] = useState(false);
 
   const dealValue = calculateDealValue(account.annualRevenue, account.dealValueOverride);
   const accountValue = calculateAccountValue(
@@ -174,19 +176,32 @@ export const AccountCard: React.FC<AccountCardProps> = ({
 
         {/* Completion Progress Bar */}
         <div className="mb-2">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-            <span>Profile Completion</span>
-            <span className="tabular-nums">
+          <div className="flex justify-between items-center text-[10px] text-slate-500 mb-1">
+            <span className="flex items-center gap-1">
+              <span>Profile Completion</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsJourneyOpen(true);
+                }}
+                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                title="Launch guided account profile update journey"
+              >
+                · Complete Journey →
+              </button>
+            </span>
+            <span className="tabular-nums font-semibold text-slate-700">
               {account.profileCompletion.human + account.profileCompletion.ai}%
             </span>
           </div>
           <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden flex">
             <div
-              className="bg-slate-700 h-full"
+              className="bg-slate-700 h-full transition-all duration-300"
               style={{ width: `${account.profileCompletion.human}%` }}
             />
             <div
-              className="bg-purple-400 h-full"
+              className="bg-indigo-500 h-full transition-all duration-300"
               style={{ width: `${account.profileCompletion.ai}%` }}
             />
           </div>
@@ -212,6 +227,15 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           <span className="text-[10px] tabular-nums">{account.fieldAuditTrail.length}</span>
         </button>
       </div>
+
+      {/* Guided Account Profile Completion Journey */}
+      {isJourneyOpen && (
+        <AccountUpdateJourneyModal
+          account={account}
+          isOpen={isJourneyOpen}
+          onClose={() => setIsJourneyOpen(false)}
+        />
+      )}
     </div>
   );
 };

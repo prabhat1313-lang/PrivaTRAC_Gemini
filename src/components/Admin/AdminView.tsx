@@ -28,10 +28,12 @@ import { DataImportAdminTab } from './DataImportAdminTab';
 import { AdminAuditTab } from './AdminAuditTab';
 import { ProductKnowledgeBaseAdminTab } from './ProductKnowledgeBaseAdminTab';
 import { ProductMatrixConfigAdminTab } from './ProductMatrixConfigAdminTab';
+import { ParentContextStudioAdminTab } from './ParentContextStudioAdminTab';
 import { History, BookOpen } from 'lucide-react';
 
 export type AdminSubTab =
   | 'general'
+  | 'parentContext'
   | 'knowledgeBase'
   | 'matrixConfig'
   | 'users'
@@ -67,6 +69,12 @@ export const AdminView: React.FC = () => {
     badge?: string;
   }[] = [
     { id: 'general', label: 'General & Exchange Rates', icon: Coins, badge: 'Base: INR' },
+    {
+      id: 'parentContext',
+      label: 'RFP Parent Context Studio',
+      icon: Database,
+      badge: 'NotebookLM',
+    },
     {
       id: 'knowledgeBase',
       label: 'Product Context & KB',
@@ -244,6 +252,7 @@ export const AdminView: React.FC = () => {
       {/* Tab Panels */}
       <div>
         {activeSubTab === 'general' && <GeneralSettingsAdminTab />}
+        {activeSubTab === 'parentContext' && <ParentContextStudioAdminTab />}
         {activeSubTab === 'knowledgeBase' && <ProductKnowledgeBaseAdminTab />}
         {activeSubTab === 'matrixConfig' && <ProductMatrixConfigAdminTab />}
         {activeSubTab === 'users' && <UsersAdminTab />}

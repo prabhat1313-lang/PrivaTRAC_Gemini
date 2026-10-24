@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { CrmProvider, useCrm } from './context/CrmContext';
+import { RfpProvider } from './context/RfpContext';
 import { Header } from './components/Header';
 import { Navigation, ActiveTab } from './components/Navigation';
 import { DashboardView } from './components/Dashboard/DashboardView';
@@ -17,6 +18,7 @@ import { MailboxView } from './components/Mailbox/MailboxView';
 import { ReportsView } from './components/Reports/ReportsView';
 import { AdminView } from './components/Admin/AdminView';
 import { ProductMatrixView } from './components/ProductMatrix/ProductMatrixView';
+import { RfpWorkDeskView } from './components/RfpWorkDesk/RfpWorkDeskView';
 import { AddAccountModal } from './components/Accounts/AddAccountModal';
 import { AccountDetailModal } from './components/Accounts/AccountDetailModal';
 import { AuditTrailModal } from './components/Accounts/AuditTrailModal';
@@ -46,6 +48,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'accounts' && <AccountsView />}
         {activeTab === 'contacts' && <ContactsView />}
         {activeTab === 'tasks' && <TasksView />}
+        {activeTab === 'rfpWorkDesk' && <RfpWorkDeskView />}
         {activeTab === 'productMatrix' && <ProductMatrixView />}
         {activeTab === 'demos' && <DemosView />}
         {activeTab === 'partners' && <PartnersView />}
@@ -102,7 +105,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <CrmProvider>
-      <AppContent />
+      <RfpProvider>
+        <AppContent />
+      </RfpProvider>
     </CrmProvider>
   );
 }

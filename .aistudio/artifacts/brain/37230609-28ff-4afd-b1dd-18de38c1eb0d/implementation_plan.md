@@ -1,136 +1,174 @@
-# Architecture Plan: Guided Profile Creation & Header Help/Query System
+# Implementation Plan: Integrations Scope Review, Dedicated RFP Task Isolation & Cross-Module Reporting
 
-Architectural evaluation and implementation roadmap for introducing **Guided Profile Creation** and a **Header Help / Query System**, comparing the **Unified Dual-Mode Copilot** versus the **Decoupled Help Center & Command Utility**.
+Transforming the Integrations section into a comprehensive **Integrations Scope Review** in the RFP Work Desk (capturing explicit RFP requirements and auto-detected SoW-inferred integrations with approval toggles), isolating the general CRM Tasks module from RFP tasks while preserving full task execution parity within RFP sections, and unifying organizational reporting to aggregate tasks across both CRM and RFP Work Desk modules.
 
-***
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Based on your confirmed choices in Phase 1:
-> - **Primary Architectural Model**: **Unified Copilot with Help and SalesOps dual modes** — consolidating operational CRM updates and contextual guidance into a single, cohesive experience.
-> - **Profile Creation Triggers**: Multi-step guided wizard triggered on **first-time user onboarding** AND via a **"Complete Profile"** button inside the Account's bubble view.
-> - **Query Guidance Depth**: Context-aware answers equipped with **one-click actionable shortcuts** (e.g., direct navigation, autofilled Copilot actions, or instant drawer launches).
+> The following decisions were clarified and confirmed with the user in Phase 1:
+> - **Inferred Integrations Handling**: Integrations inferred from SoW line items (e.g., when an alternate solution or third-party ecosystem extension like Cyera DSPM, Thales HSM, or Splunk SIEM is planned) are auto-detected dynamically, rendered with a distinctive `Inferred from SoW` tag, and equipped with an interactive approval toggle (`[Approve Scope]` / `[Approved]`).
+> - **Tasks Module Separation**: The general CRM Tasks module (`TasksView.tsx`) strictly excludes RFP tasks from display (zero visual clutter from tender clause sub-tasks), while RFP Work Desk sections and Account Detail RFP chapters retain the complete suite of task management features (creation, status transitions, role assignments, priority adjustments, due dates).
+> - **Cross-Module Task Reporting**: All executive dashboard cards, pipeline health summaries, and reporting analytics compute unified total metrics across both CRM and RFP Work Desk tasks, displaying clean breakdown indicators (`Total Tasks (CRM · RFP)`).
 
-***
+---
 
 ## 1. Overview & Core Concept
 
-Users in the PrivaSapien CRM require two capabilities:
-1. **Guided Profile Setup**: Sales reps, pre-sales architects, and executives need a frictionless 4-step wizard to configure their operational profile (role designation, territory/industry focus, default currency, and PrivaTRAC delegation preferences). This must trigger on first login and on demand via a "Complete Profile" badge/button within an Account's bubble view.
-2. **Header Help / Query Module**: A top-bar query interface where users can ask questions ("How do I submit an RFP annexure?", "What is Privacy Epsilon?", "Why is HDFC deal marked stale?") and immediately receive grounded guidance with one-click actions.
+### 1.1 What It Does
+- **Integrations Scope Review Section**: Replaces the basic Integrations tab with an enterprise-grade scope review desk. It contrasts **Explicit RFP Requirements** (connectors requested by the client in technical specs) against **Inferred Integrations** (derived from SoW clause exceptions, third-party tool suggestions, or external API dependencies). Pre-Sales leads can approve, review, or reject inferred connectors with an explicit audit trail.
+- **Strict Task Module Isolation**: Prevents RFP tender micro-tasks (e.g., "Verify PKCS#11 key size with Thales", "Validate DP epsilon budget with Infosec") from cluttering the standard CRM pipeline task board (`TasksView.tsx`). RFP tasks remain fully operational inside their respective RFP Work Desk sections and the Account Detail "RFP Chapter".
+- **Unified Cross-Module Reporting**: Executive dashboards, workload analytics, and account summaries calculate true operational velocity by summing both CRM pipeline actions and RFP Work Desk deliverables, preventing blind spots during major tender bids.
 
-Below are the **2 best approaches** for implementing this system.
-
-***
-
-## 2. Approach 1: Unified Dual-Mode Copilot (Recommended)
-
-### Concept & UX Architecture
-Transform the existing `SalesOps Copilot` in the header into an omni-channel **PrivaSapien AI Copilot** with two distinct yet interconnected tabs/modes:
-- **Tab 1: Action & SalesOps Mode** (Current capability): Natural language parsing of operational CRM mutations (stage transitions, deal values, stances, follow-up tasks) with PrivaTRAC human-in-the-loop review.
-- **Tab 2: Help & Knowledge Guide Mode** (New capability): Answers "How to...", product capabilities, compliance rules, and RFP workflows, responding with rich markdown cards and one-click interactive action buttons.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       HEADER (TOP NAVIGATION BAR)                           │
-│  [PrivaSapien Logo]   [Quick Search / Ask Query... 🔍]   [✨ Copilot] [User] │
-└──────────────────────────────────────┬──────────────────────────────┬───────┘
-                                       │                              │
-                     ┌─────────────────┴──────────────────────────────┴───────┐
-                     ▼                                                        ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      UNIFIED SALESOPS & HELP COPILOT MODAL                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  [ ✨ SalesOps Actions ]          [ 💡 Help & Knowledge Guide (Active) ]    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  "How do I configure Differential Privacy Epsilon for State Bank of India?" │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  💡 Copilot Answer:                                                         │
-│  Differential Privacy Epsilon (ε) controls the mathematical privacy budget. │
-│  In PrivaSapien CRM, configure this in the Account's Product Matrix tab.    │
-│                                                                             │
-│  ⚡ One-Click Actionable Shortcuts:                                         │
-│  ┌───────────────────────────────────┐ ┌──────────────────────────────────┐ │
-│  │ 📂 Open SBI Product Matrix Tab    │ │ 🚀 Start Guided Profile Wizard   │ │
-│  └───────────────────────────────────┘ └──────────────────────────────────┘ │
-│  ┌───────────────────────────────────┐ ┌──────────────────────────────────┐ │
-│  │ 🤖 Switch to SalesOps Action Plan │ │ 📋 View SBI Submission Checklist │ │
-│  └───────────────────────────────────┘ └──────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Guided Profile Creation Integration
-- **First-Time Detection**: Checks `currentUser.profileCompleted` in `CrmContext`. If false, auto-opens the `ProfileWizardModal`.
-- **Account Bubble View Trigger**: Inside `AccountBubbleView` / `AccountDetailModal`, an ambient status banner renders:
-  `Profile Incomplete (60%) · [Complete Profile →]`. Clicking it opens the wizard with the current account pre-linked.
-- **Wizard Steps (4-Step Stepper)**:
-  1. *Identity & Persona*: Name, designation, business email, and photo/avatar initials.
-  2. *Territory & Product Specialization*: Primary region (India, APAC, EMEA, US) and product focus (PETs Core, Synthetic Data Studio).
-  3. *Currency & Regional Formatting*: Default display currency (INR ₹ Cr/Lakhs, USD $, SGD S$, EUR €).
-  4. *PrivaTRAC Delegation & Governance*: Set authorized "On Behalf Of" delegation permissions and notification preferences.
+### 1.2 Target Audience & Personas
+- **Pre-Sales Lead / Solution Architect**: Reviews integration feasibility, confirms whether an alternate 3P tool planned in an SoW clause necessitates an active adapter or middleware, and controls the RFP task backlog.
+- **Delivery Manager / SI Partner Lead**: Validates whether inferred integrations require custom build efforts, additional professional services (PS), or partner co-delivery.
+- **Sales VP / Executive**: Views holistic organizational velocity across commercial account deals and active technical tender workloads in one unified reporting metric.
 
 ---
 
-## 3. Approach 2: Decoupled Copilot & Dedicated Command Center Utility
+## 2. User Experience & Visual Design
 
-### Concept & UX Architecture
-Keep `SalesOps Copilot` strictly focused on CRM state modifications, and introduce a separate, dedicated **Help & Command Center** (`HelpCenterModal` / `Cmd+K` palette) triggered by a `HelpCircle` icon in the header.
+Adhering strictly to B2B enterprise design standards: zero-pill metadata discipline, high density, and WCAG AA contrast.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       HEADER (TOP NAVIGATION BAR)                           │
-│  [PrivaSapien Logo]             [? Help Center]   [✨ SalesOps Copilot]      │
-└────────────────────────────────────────┬──────────────────────┬─────────────┘
-                                         ▼                      ▼
-                     ┌───────────────────────────┐  ┌─────────────────────────┐
-                     │   HELP & COMMAND CENTER   │  │   SALESOPS COPILOT      │
-                     │ • Search Knowledge Base   │  │ • Parse operational CRM│
-                     │ • Feature Documentation   │  │ • Stage & deal values   │
-                     │ • Launch Profile Wizard   │  │ • Strict Human Gate     │
-                     │ • Handoff to Copilot ───►─┼──┤ • Audit trail logging   │
-                     └───────────────────────────┘  └─────────────────────────┘
-```
+### 2.1 Integrations Scope Review UI
+- **Cluster Bar & Header**: Navigable in both Cluster 2 (Architecture) and Cluster 3 (Delivery) with clean horizontal scroll buttons. Displays key metrics cleanly without decorative pills:
+  ```
+  8 Connectors Tracked · 5 RFP Explicit · 3 Inferred from SoW · 2 Awaiting Solution Lead Approval
+  ```
+- **Filter Segmented Control**: Interactive `<button>` tabs for `All Connectors`, `RFP Requirements (5)`, `Inferred from SoW (3)`, and `Pending Review (2)`.
+- **Connector Row / Card Composition**:
+  - Title and vendor name with category kicker (`DSPM / Alternate Tool for Clause SOW-003`).
+  - Source attribution: Unboxed text separator `RFP Requirement` vs `Inferred from Clause SOW-003 · Cyera Enterprise`.
+  - Throughput, latency SLA, and protocol specifications (`REST / Webhook · 10,000 EPS · < 25ms`).
+  - Interactive Actions: An approval toggle button `[Approve Scope]` / `[Scope Confirmed]` with instant audit logging (`actor: 'SalesOps Copilot'`, `onBehalfOf: current user`).
 
-### Guided Profile Creation Integration
-- Uses a standalone reusable modal `UserProfileOnboardingModal` that can be triggered independently from:
-  1. Header Help Center ("Launch Profile Tour").
-  2. First-time login banner.
-  3. "Complete Profile" button inside Account detail bubbles.
+### 2.2 Tasks Module Strict Isolation
+- In `TasksView.tsx`, ensure the task collection is filtered to strictly exclude any tasks originated from RFP tenders (`isRfpTask: true` or `rfpId !== undefined`).
+- Full task capability (creation, status dropdown, priority selection, assignees, due dates, and completion checkmarks) remains 100% active in:
+  - All 18 RFP Work Desk sections (`RfpTaskSection` drawer).
+  - Account Detail Modal under the `RFP Chapter & Tenders` tab.
+
+### 2.3 Cross-Module Reporting & Metrics
+- **Executive Dashboard KPI Card**:
+  - Main counter: `Total Tasks: 24`
+  - Subtle breakdown subtitle: `16 CRM Deals · 8 RFP Work Desk`
+  - Completion velocity bar aggregating completed CRM tasks + completed RFP tasks.
+- **Account Health Card**: Integrates RFP task completion percentages into account engagement scores.
 
 ---
 
-## 4. Architectural Comparison & Trade-Off Analysis
+## 3. Key Product Decisions & Trade-Offs
 
-| Criteria | Approach 1: Unified Dual-Mode Copilot (Recommended) | Approach 2: Decoupled Help Center Utility |
+| Decision | Chosen Approach | Rationale & Trade-Offs |
 | :--- | :--- | :--- |
-| **Cognitive Load** | **Low**: Single entry point for both "Help me understand" and "Do this for me". | **Medium**: User must decide whether their question is a "help query" or an "agent command". |
-| **Header Real Estate** | **High Density**: Saves header space; unified search bar or clean Copilot button with query input. | **Medium**: Requires adding another icon/button in the top header bar. |
-| **Actionable Guidance** | **Superior**: Direct bridge from asking a question to staging a CRM update in the same window. | **Moderate**: Requires explicit cross-modal handoff state or deep-linking. |
-| **Code Separation** | Modular within sub-components (`SalesOpsModeView.tsx` & `HelpGuideModeView.tsx`). | Completely separate files and modal roots. |
-| **Implementation Complexity** | **Low–Medium**: Extends existing `SalesOpsAgentModal` with a tabbed interface and static KB embeddings. | **Medium**: Requires building a whole new modal, search engine, and handoff bridge. |
+| **Integrations Section Rebrand & Expansion** | Renamed to **Integrations Scope Review** with dual-source ingestion (RFP requirements + SoW clause inference) | Captures real-world enterprise procurement realities where SoW trade-offs introduce third-party integration overhead. |
+| **Inferred Scope Approval Workflow** | Interactive toggle with Pre-Sales confirmation badge | Enforces Human-in-the-Loop governance: automated detection flags candidates, but engineers confirm before commercial freeze. |
+| **RFP Task Display Isolation** | Filtered out of general CRM `TasksView.tsx` | Eliminates noise for account reps who do not manage technical tender line-items, while keeping RFP teams fully equipped. |
+| **Unified Cross-Module Reporting** | Aggregate in `ExecutiveDashboardView` & reporting summaries with `(CRM · RFP)` breakdown | Provides executives with true organizational workload transparency without blending operational boards. |
 
-***
+---
 
-## 5. Proposed Implementation Specification (Approach 1)
+## 4. Technical Architecture & Data Strategy
 
-### Component Hierarchy
+### 4.1 System Diagram
 ```
-src/
-├── components/
-│   ├── Header.tsx                         <-- Updated: Omni query input / Copilot trigger
-│   ├── SalesOps/
-│   │   ├── SalesOpsAgentModal.tsx         <-- Dual-mode tabs: [Actions] & [Help & Guide]
-│   │   ├── SalesOpsHelpTab.tsx            <-- Context-aware query responder & 1-click shortcuts
-│   │   └── helpKnowledgeBase.ts           <-- Grounded CRM docs, PETs definitions, FAQ dataset
-│   ├── Profile/
-│   │   ├── ProfileWizardModal.tsx         <-- 4-step guided onboarding wizard
-│   │   └── ProfileCompletionBadge.tsx     <-- Reusable "Complete Profile" CTA for Account bubbles
-│   └── Accounts/
-│       └── AccountDetailModal.tsx         <-- Embedded ProfileCompletionBadge in header
-└── context/
-    └── CrmContext.tsx                     <-- User profile status state & openHelpQuery()
+┌────────────────────────────────────────────────────────────────────────┐
+│                        RFP WORK DESK ENGINE                            │
+│                                                                        │
+│  ┌───────────────────────┐              ┌───────────────────────────┐  │
+│  │   SoW Review Section  │              │   RFP Requirements Parser │  │
+│  │  - 3P Tool Suggested  ├──────────┐   │  - Explicit RFP Connectors│  │
+│  │  - Partial Compliance │          │   └─────────────┬─────────────┘  │
+│  └───────────────────────┘          │                 │                │
+│                                     ▼                 ▼                │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                 INTEGRATIONS SCOPE REVIEW SECTION                │  │
+│  │  - Explicit Connectors (RFP Requirements)                        │  │
+│  │  - Inferred Connectors (origin: SoW Clause, approval toggle)     │  │
+│  │  - Universal Task & Comment Drawers                              │  │
+│  └──────────────────────────────────┬───────────────────────────────┘  │
+│                                     │                                  │
+│                 ┌───────────────────┴───────────────────┐              │
+│                 ▼                                       ▼              │
+│  ┌─────────────────────────────┐         ┌───────────────────────────┐ │
+│  │   RFP Section Tasks State   │         │   Account Context Sync    │ │
+│  │  - Task execution & status  │         │  - Account Detail Timeline│ │
+│  │  - Isolated from CRM Tasks  │         │  - RFP Chapter Tab        │ │
+│  └──────────────┬──────────────┘         └───────────────────────────┘ │
+└─────────────────┼──────────────────────────────────────────────────────┘
+                  │ Cross-Module Task Aggregator
+                  ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   EXECUTIVE REPORTING & DASHBOARD                      │
+│  - Total Tasks = CRM Tasks + RFP Tasks                                 │
+│  - Breakdown: `X CRM · Y RFP` with completion velocity & SLA rates    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Next Steps & Decision Gate
-Upon approval, we will proceed with implementing **Approach 1 (Unified Dual-Mode Copilot with Guided Profile Creation Wizard)** without disrupting any existing operational workflows.
+### 4.2 Data Entity Schema Extensions
+1. **IntegrationItem**:
+   ```typescript
+   export interface IntegrationItem {
+     id: string;
+     rfpId: string;
+     name: string;
+     category: 'Core Banking' | 'Cloud Storage' | 'SIEM & Logging' | 'HSM & KMS' | 'DSPM & Data Security' | 'IAM & SSO' | 'Other';
+     vendor: string;
+     protocol: string;
+     throughputSla: string;
+     latencySla: string;
+     status: 'Verified' | 'In Progress' | 'Pending Review' | 'Flagged';
+     origin: 'RFP Requirement' | 'Inferred from SoW';
+     inferredFromSowId?: string; // e.g. 'sow-003'
+     inferredRationale?: string;
+     isApproved?: boolean;
+     approvedBy?: string;
+     approvedAt?: string;
+   }
+   ```
+2. **Dynamic Inferred Connectors Generator**:
+   - In `RfpContext.tsx`, evaluate `sowList`: whenever an item has `requiresThirdPartyTool: true` or `suggestedThirdPartyTool` present (or compliance is `Partially Compliant` with external tool), generate or expose an inferred `IntegrationItem`.
+   - Provide `approveInferredIntegration(id: string, approver: string)` and `toggleIntegrationApproval(id: string)`.
+
+3. **Tasks Filtering & Aggregation Strategy**:
+   - In `TasksView.tsx`: apply `!task.isRfpTask && !task.rfpId` filter to ensure zero RFP tasks appear in the CRM list.
+   - In `ExecutiveDashboardView.tsx` / `CrmContext.tsx`:
+     ```typescript
+     const totalCrmTasks = crmTasks.length;
+     const totalRfpTasks = rfpTasks.length;
+     const unifiedTotalTasks = totalCrmTasks + totalRfpTasks;
+     const completedCrmTasks = crmTasks.filter(t => t.status === 'Completed').length;
+     const completedRfpTasks = rfpTasks.filter(t => t.status === 'Completed').length;
+     const unifiedCompletedTasks = completedCrmTasks + completedRfpTasks;
+     ```
+
+---
+
+## 5. Implementation Steps & Work Plan
+
+1. **Step 1: Extend RFP Types & Seed Data**
+   - Update `src/types/rfp.ts` with `origin`, `inferredFromSowId`, `inferredRationale`, `isApproved`, `approvedBy`, `approvedAt` on `IntegrationItem`.
+   - Update `src/data/rfpSeedData.ts` with explicit and inferred integration seeds linked to SoW clauses (e.g., Cyera DSPM for unstructured discovery, Thales Luna HSM for PKCS#11 root key storage).
+
+2. **Step 2: Upgrade RfpContext with Inferred Integration Logic**
+   - Add dynamic inference from `sowList` line items that have third-party tool suggestions.
+   - Provide `approveInferredIntegration` and `toggleIntegrationApproval` actions with audit logs.
+
+3. **Step 3: Create IntegrationsScopeReviewSection Component**
+   - Rename and upgrade `src/components/RfpWorkDesk/IntegrationsSection.tsx` to `IntegrationsScopeReviewSection.tsx`.
+   - Implement source filter tabs (`All`, `RFP Explicit`, `Inferred from SoW`, `Pending Approval`).
+   - Add approval toggle button for inferred items with clause reference link.
+   - Update navigation and section registry in `RfpWorkDeskView.tsx`.
+
+4. **Step 4: Strictly Exclude RFP Tasks from CRM TasksView**
+   - In `src/components/Tasks/TasksView.tsx`, ensure the active task filter excludes any task with `isRfpTask` or `rfpId`.
+   - Verify that all task management capabilities (creation, editing, statuses, priorities) remain fully functional in `RfpWorkDesk` sections and `AccountDetailModal`.
+
+5. **Step 5: Unified Cross-Module Task Reporting**
+   - Update `ExecutiveDashboardView.tsx` and pipeline metrics to compute unified task counts (CRM + RFP) with clean `(CRM · RFP)` breakdown indicators.
+
+6. **Step 6: Verification & Quality Assurance**
+   - Run `lint_applet` and `compile_applet` to ensure zero compilation or typing errors.
+   - Verify visual rendering in browser environment.

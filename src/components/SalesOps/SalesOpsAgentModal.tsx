@@ -94,6 +94,15 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
   const [isProfileWizardOpen, setIsProfileWizardOpen] = useState(false);
   const [rfpAccountToOpen, setRfpAccountToOpen] = useState<Account | null>(null);
 
+  // Filtered Help Articles (unconditional useMemo hooks)
+  const helpArticles = useMemo(() => {
+    return searchHelpKnowledgeBase(helpQuery);
+  }, [helpQuery]);
+
+  const activeHelpArticle = useMemo(() => {
+    return HELP_KNOWLEDGE_BASE.find((a) => a.id === selectedArticleId) || helpArticles[0];
+  }, [selectedArticleId, helpArticles]);
+
   // Sample prompt inspiration
   const samplePrompts = [
     'Move Tata Consultancy Services to Mature stage and set deal value to 45 Lakhs INR',
@@ -172,8 +181,6 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
       }
     }
   }, [isOpen, initialPrompt, initialMode]);
-
-  if (!isOpen) return null;
 
   const handleGeneratePlan = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -353,15 +360,6 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
     (it) => it.confirmed && !it.isBlocked && it.type !== 'admin_restricted'
   ).length;
 
-  // Filtered Help Articles
-  const helpArticles = useMemo(() => {
-    return searchHelpKnowledgeBase(helpQuery);
-  }, [helpQuery]);
-
-  const activeHelpArticle = useMemo(() => {
-    return HELP_KNOWLEDGE_BASE.find((a) => a.id === selectedArticleId) || helpArticles[0];
-  }, [selectedArticleId, helpArticles]);
-
   // Execute shortcut actions from Help Mode
   const handleExecuteShortcut = (shortcut: HelpActionShortcut) => {
     if (shortcut.actionType === 'open_profile_wizard') {
@@ -389,6 +387,8 @@ export const SalesOpsAgentModal: React.FC<SalesOpsAgentModalProps> = ({
       }
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
