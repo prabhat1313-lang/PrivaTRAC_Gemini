@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRfp } from '../../context/RfpContext';
 import { useCrm } from '../../context/CrmContext';
 import {
@@ -27,7 +27,11 @@ import {
   Settings2,
   X,
   Network,
+  AlertCircle,
+  Bell,
+  ArrowRight,
 } from 'lucide-react';
+import { generateSentinelWarnings, SentinelWarningItem } from '../../utils/rfpWinCalculations';
 import { RfpDashboardTab } from './RfpDashboardTab';
 import { PreBidQueriesSection } from './PreBidQueriesSection';
 import { SoWReviewSection } from './SoWReviewSection';
@@ -77,6 +81,10 @@ export const RfpWorkDeskView: React.FC = () => {
     activeConflictCount,
     reviewQueue,
     updateTenderActiveSections,
+    conflictFlags,
+    integrationsList,
+    tasks,
+    pbqList,
   } = useRfp();
   const { currentUser } = useCrm();
 
@@ -84,6 +92,12 @@ export const RfpWorkDeskView: React.FC = () => {
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isReviewQueueOpen, setIsReviewQueueOpen] = useState(false);
   const [isTemplatizingOpen, setIsTemplatizingOpen] = useState(false);
+
+  // SLA Early-Warning Sentinel alerts
+  const sentinelWarnings = useMemo(
+    () => generateSentinelWarnings(selectedTender, conflictFlags, integrationsList, tasks, pbqList),
+    [selectedTender, conflictFlags, integrationsList, tasks, pbqList]
+  );
 
   const sectionsList: {
     id: RfpSectionKey;
@@ -258,6 +272,69 @@ export const RfpWorkDeskView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SLA Early-Warning Sentinel Ribbon */}
+      {sentinelWarnings.length > 0 && (
+        <div className="bg-white rounded-xl border border-amber-200/90 shadow-xs p-3 space-y-2">
+          <div className="flex items-center justify-between pb-1.5 border-b border-amber-100">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                PrivaTRAC SLA Sentinel · Early-Warning Radar
+              </span>
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.2 rounded border border-amber-200">
+                {sentinelWarnings.length} Active Items
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              Automated delivery risk & milestone cutoff monitor
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            {sentinelWarnings.slice(0, 4).map((warn: SentinelWarningItem) => {
+              const isCrit = warn.urgency === 'critical';
+              return (
+                <div
+                  key={warn.id}
+                  className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 ${
+                    isCrit
+                      ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                      : 'bg-amber-50/60 border-amber-200/80 text-amber-950'
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isCrit ? 'bg-rose-600' : 'bg-amber-600'
+                        }`}
+                      />
+                      <span>{warn.title}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 truncate max-w-sm sm:max-w-md">
+                      {warn.subtitle}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection(warn.targetSectionId as RfpSectionKey)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold shrink-0 transition flex items-center gap-1 cursor-pointer shadow-2xs ${
+                      isCrit
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                        : 'bg-amber-600 hover:bg-amber-700 text-white'
+                    }`}
+                  >
+                    <span>{warn.targetLabel}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Cluster & Section Horizontal Tab Navigation with Standard Scroll Arrows */}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-1.5">

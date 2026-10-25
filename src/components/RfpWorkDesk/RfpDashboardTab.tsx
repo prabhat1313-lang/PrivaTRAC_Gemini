@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRfp } from '../../context/RfpContext';
 import { useCrm } from '../../context/CrmContext';
 import {
@@ -16,8 +16,14 @@ import {
   Layers,
   ArrowRight,
   ExternalLink,
+  Target,
+  TrendingUp,
+  Zap,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { ExecutiveSignOff } from '../../types/rfp';
+import { calculateTenderWinMetrics } from '../../utils/rfpWinCalculations';
 
 interface RfpDashboardTabProps {
   onSelectSection: (sectionId: string) => void;
@@ -37,11 +43,30 @@ export const RfpDashboardTab: React.FC<RfpDashboardTabProps> = ({
     signExecutiveRole,
     signOffQuorumMet,
     reviewQueue,
+    sowList,
+    integrationsList,
+    conflictFlags,
+    tasks,
+    pbqList,
   } = useRfp();
   const { currentUser } = useCrm();
 
   const [signingRole, setSigningRole] = useState<ExecutiveSignOff['role'] | null>(null);
   const [signConditions, setSignConditions] = useState('');
+
+  // 5-Vector Tender Win-Probability & Readiness Evaluation
+  const winMetrics = useMemo(
+    () =>
+      calculateTenderWinMetrics(
+        selectedTender,
+        sowList,
+        integrationsList,
+        conflictFlags,
+        tasks,
+        pbqList
+      ),
+    [selectedTender, sowList, integrationsList, conflictFlags, tasks, pbqList]
+  );
 
   const handleSignConfirm = (role: ExecutiveSignOff['role']) => {
     signExecutiveRole(
@@ -105,6 +130,186 @@ export const RfpDashboardTab: React.FC<RfpDashboardTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 1. Pre-Sales Win-Probability Radar & Bid Readiness Scorecard */}
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded">
+                PrivaTRAC Predictive Engine
+              </span>
+              <span className="text-xs text-slate-300">·</span>
+              <span className="text-xs font-semibold text-slate-700">
+                {winMetrics.competitiveStance}
+              </span>
+              <span className="text-xs text-slate-300">·</span>
+              <span className="text-xs text-slate-500">
+                5-Vector Multi-Criteria Scoring
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Target className="w-5 h-5 text-indigo-600" />
+              <span>Pre-Sales Tender Win-Probability Radar</span>
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Estimated Win Rate</div>
+              <div className="text-2xl font-black text-indigo-700 tabular-nums">
+                {winMetrics.overallWinScore}%
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-indigo-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Split: 5-Vector Radar vs Actionable Gap Closers */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left Column: 5 Vector Bars (7 cols) */}
+          <div className="lg:col-span-7 space-y-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Readiness & Vector Breakdown
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {/* Vector 1 */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <span className="font-semibold text-slate-700">
+                    1. Technical Compliance ({winMetrics.complianceCounts.complied}/{winMetrics.complianceCounts.total} Complied)
+                  </span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {winMetrics.technicalScore}% (35% weight)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${winMetrics.technicalScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Vector 2 */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <span className="font-semibold text-slate-700">
+                    2. Integrations Scope Validation (Approved Interfaces)
+                  </span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {winMetrics.integrationsScore}% (20% weight)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${winMetrics.integrationsScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Vector 3 */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <span className="font-semibold text-slate-700">
+                    3. Infrastructure & Sizing Integrity (Volume vs Capacity)
+                  </span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {winMetrics.infraScore}% (15% weight)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${winMetrics.infraScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Vector 4 */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <span className="font-semibold text-slate-700">
+                    4. Task SLA & Milestone Velocity (TCT Execution)
+                  </span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {winMetrics.slaVelocityScore}% (20% weight)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${winMetrics.slaVelocityScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Vector 5 */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <span className="font-semibold text-slate-700">
+                    5. SI Consortium Alignment ({selectedTender.primarySiPartner.split(' ')[0]})
+                  </span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {winMetrics.consortiumScore}% (10% weight)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${winMetrics.consortiumScore}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Actionable Win Levers & Gap Closers (5 cols) */}
+          <div className="lg:col-span-5 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                Actionable Win Levers
+              </span>
+              <span className="text-[11px] text-slate-400">Pre-Sales Next Best Action</span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              {winMetrics.recommendedActions.slice(0, 3).map((rec) => (
+                <div
+                  key={rec.id}
+                  onClick={() => onSelectSection(rec.sectionId)}
+                  className="p-2.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-2xs transition cursor-pointer flex items-center justify-between gap-2 group"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-slate-800 group-hover:text-indigo-600 transition flex items-center gap-1">
+                      <span>{rec.title}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">{rec.actionText}</div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      +{rec.winGain}% Win
+                    </span>
+                    <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition" />
+                  </div>
+                </div>
+              ))}
+
+              {winMetrics.recommendedActions.length === 0 && (
+                <div className="p-4 text-center text-slate-500 text-[11px]">
+                  All high-impact pre-sales recommendations are fulfilled.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Top Notification / Action Alerts Banner */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Conflict Flags Widget */}

@@ -1,6 +1,6 @@
 {
-  "summary":  "Revised implementation plan for Integrations Scope Review with auto-detected SoW-inferred integrations and approval toggles, strict exclusion of RFP tasks from the general CRM Tasks module while retaining full functional parity in RFP sections, and unified cross-module task reporting with CRM vs RFP breakdown indicators.",
-  "updatedAt":  "2026-10-24T09:08:55.054674603Z",
+  "summary":  "Expanded implementation plan featuring smart dual-destination Create Task functionality from the Mailbox module: automatically detecting and routing tasks to the RFP Work Desk for tender-linked accounts/deals and to the Account workspace for standard commercial deals, pre-populating email subject, selected text snippets, and source references, with an inline toast providing direct jump links to the created task.",
+  "updatedAt":  "2026-10-25T09:03:03.763231875Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

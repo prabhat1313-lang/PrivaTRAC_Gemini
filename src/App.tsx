@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { CrmProvider, useCrm } from './context/CrmContext';
 import { RfpProvider } from './context/RfpContext';
+import { MailboxProvider } from './context/MailboxContext';
 import { Header } from './components/Header';
 import { Navigation, ActiveTab } from './components/Navigation';
 import { DashboardView } from './components/Dashboard/DashboardView';
@@ -52,7 +53,12 @@ const AppContent: React.FC = () => {
         {activeTab === 'productMatrix' && <ProductMatrixView />}
         {activeTab === 'demos' && <DemosView />}
         {activeTab === 'partners' && <PartnersView />}
-        {activeTab === 'mailbox' && <MailboxView />}
+        {activeTab === 'mailbox' && (
+          <MailboxView
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+            onSelectAccount={(acc) => setActiveAccount(acc)}
+          />
+        )}
         {activeTab === 'reports' && <ReportsView />}
         {activeTab === 'admin' && <AdminView />}
       </main>
@@ -106,7 +112,9 @@ export default function App() {
   return (
     <CrmProvider>
       <RfpProvider>
-        <AppContent />
+        <MailboxProvider>
+          <AppContent />
+        </MailboxProvider>
       </RfpProvider>
     </CrmProvider>
   );

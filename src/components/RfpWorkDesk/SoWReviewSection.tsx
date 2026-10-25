@@ -11,6 +11,7 @@ import {
   Search,
   ExternalLink,
   Shield,
+  ShieldCheck,
   Layers,
   Wrench,
   UserCheck,
@@ -78,7 +79,18 @@ export const SoWReviewSection: React.FC = () => {
   const [newFrdSpecSummary, setNewFrdSpecSummary] = useState('');
   const [newFrdCriteria, setNewFrdCriteria] = useState('Sub-millisecond query evaluation\nZero raw data exposure audit');
 
-  const tenderSowItems = sowList.filter((s) => s.rfpId === selectedTender.id);
+  const tenderSowItems = sowList.filter((s) => s.rfpId === selectedTender.id || !s.rfpId);
+
+  const compliedCount = tenderSowItems.filter((s) => s.complianceStatus === 'Complied').length;
+  const partialCount = tenderSowItems.filter((s) => s.complianceStatus === 'Partially Complied').length;
+  const exceptionCount = tenderSowItems.filter((s) => s.complianceStatus === 'Exception / Deviation').length;
+  const notCompliedCount = tenderSowItems.filter((s) => s.complianceStatus === 'Not Complied').length;
+  const frdCoveredCount = tenderSowItems.filter(
+    (s) =>
+      s.isPrivasapienNative ||
+      (s.mappedFrdIds && s.mappedFrdIds.length > 0) ||
+      (s.requiresThirdPartyTool && s.suggestedThirdPartyTool)
+  ).length;
 
   const filteredItems = tenderSowItems.filter((item) => {
     const matchesStatus = filterStatus === 'all' || item.complianceStatus === filterStatus;
@@ -193,8 +205,56 @@ export const SoWReviewSection: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500 font-medium">Compliance Coverage:</span>
           <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-            100% Evaluated
+            {Math.round((frdCoveredCount / (tenderSowItems.length || 1)) * 100)}% Evaluated & Covered
           </span>
+        </div>
+      </div>
+
+      {/* Automated Compliance Matrix Analyzer Strip */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              PrivaTRAC Automated Compliance Matrix Analyzer
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+              Regulatory Aligned
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+            <span>DPDP 2023 Compliant</span>
+            <span>·</span>
+            <span>MAS FEAT Aligned</span>
+            <span>·</span>
+            <span>ISO 42001 Attested</span>
+            <span>·</span>
+            <span>FIPS-140-3 L3 Interfaced</span>
+          </div>
+        </div>
+
+        {/* 4 Stat Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-lg bg-emerald-50/60 border border-emerald-200/80">
+            <div className="text-[10px] uppercase font-bold text-emerald-800">Complied (Native IP)</div>
+            <div className="text-xl font-black text-emerald-900 mt-0.5 tabular-nums">{compliedCount}</div>
+            <div className="text-[10px] text-emerald-700 mt-0.5">Differential Privacy & Synthesis</div>
+          </div>
+          <div className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-200/80">
+            <div className="text-[10px] uppercase font-bold text-indigo-800">Partially Complied</div>
+            <div className="text-xl font-black text-indigo-900 mt-0.5 tabular-nums">{partialCount}</div>
+            <div className="text-[10px] text-indigo-700 mt-0.5">Backed by Verified FRD Specs</div>
+          </div>
+          <div className="p-3 rounded-lg bg-purple-50/60 border border-purple-200/80">
+            <div className="text-[10px] uppercase font-bold text-purple-800">Exceptions (3P Ecosystem)</div>
+            <div className="text-xl font-black text-purple-900 mt-0.5 tabular-nums">{exceptionCount}</div>
+            <div className="text-[10px] text-purple-700 mt-0.5">DSPM / HSM Pass-through</div>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="text-[10px] uppercase font-bold text-slate-600">Disqualification Risk</div>
+            <div className="text-xl font-black text-slate-900 mt-0.5 tabular-nums">{notCompliedCount}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Zero unaddressed deviations</div>
+          </div>
         </div>
       </div>
 
@@ -202,11 +262,11 @@ export const SoWReviewSection: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
           {[
-            { id: 'all', label: 'All Clauses' },
-            { id: 'Complied', label: 'Complied' },
-            { id: 'Partially Complied', label: 'Partially Complied' },
-            { id: 'Exception / Deviation', label: 'Deviations' },
-            { id: 'Not Complied', label: 'Not Complied' },
+            { id: 'all', label: `All Clauses (${tenderSowItems.length})` },
+            { id: 'Complied', label: `Complied (${compliedCount})` },
+            { id: 'Partially Complied', label: `Partially Complied (${partialCount})` },
+            { id: 'Exception / Deviation', label: `Deviations (${exceptionCount})` },
+            { id: 'Not Complied', label: `Not Complied (${notCompliedCount})` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -214,7 +274,7 @@ export const SoWReviewSection: React.FC = () => {
               onClick={() => setFilterStatus(tab.id)}
               className={`px-3 py-1 rounded-md text-xs font-medium whitespace-nowrap transition cursor-pointer ${
                 filterStatus === tab.id
-                  ? 'bg-slate-900 text-white shadow-2xs'
+                  ? 'bg-slate-900 text-white shadow-2xs font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >

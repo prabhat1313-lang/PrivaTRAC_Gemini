@@ -1,174 +1,176 @@
-# Implementation Plan: Integrations Scope Review, Dedicated RFP Task Isolation & Cross-Module Reporting
+# Implementation Plan: Outlook Integration, Enterprise Mailbox & Smart Dual-Destination Task Creation
 
-Transforming the Integrations section into a comprehensive **Integrations Scope Review** in the RFP Work Desk (capturing explicit RFP requirements and auto-detected SoW-inferred integrations with approval toggles), isolating the general CRM Tasks module from RFP tasks while preserving full task execution parity within RFP sections, and unifying organizational reporting to aggregate tasks across both CRM and RFP Work Desk modules.
+Expanding the enterprise **Mailbox Module & Microsoft Outlook (Graph API) Integration** with an intelligent, context-aware **Create Task Engine**. Automatically distinguishes between **RFP Deals/Accounts** (routing tasks directly into the targeted RFP Work Desk section) and **Non-RFP Deals/Accounts** (routing tasks into the parent Account workspace), pre-populating email subjects, highlighted snippet descriptions, and thread references with direct-jump toast confirmations.
 
 ---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following decisions were clarified and confirmed with the user in Phase 1:
-> - **Inferred Integrations Handling**: Integrations inferred from SoW line items (e.g., when an alternate solution or third-party ecosystem extension like Cyera DSPM, Thales HSM, or Splunk SIEM is planned) are auto-detected dynamically, rendered with a distinctive `Inferred from SoW` tag, and equipped with an interactive approval toggle (`[Approve Scope]` / `[Approved]`).
-> - **Tasks Module Separation**: The general CRM Tasks module (`TasksView.tsx`) strictly excludes RFP tasks from display (zero visual clutter from tender clause sub-tasks), while RFP Work Desk sections and Account Detail RFP chapters retain the complete suite of task management features (creation, status transitions, role assignments, priority adjustments, due dates).
-> - **Cross-Module Task Reporting**: All executive dashboard cards, pipeline health summaries, and reporting analytics compute unified total metrics across both CRM and RFP Work Desk tasks, displaying clean breakdown indicators (`Total Tasks (CRM · RFP)`).
+> The following architectural decisions were established and confirmed in Phase 1:
+> - **Task Destination Routing**: Automatically routes tasks based on the matched Account's procurement type (`Open RFP` / `Closed RFP` vs `Direct Opportunity`) and active tender presence. For tender accounts, tasks dispatch directly into the RFP Work Desk (`RfpSectionTask`); for standard commercial deals, tasks dispatch into the Account CRM workspace (`Task`).
+> - **Pre-Populated Task Content**: Automatically extracts the email subject as the task title, captures user-highlighted text or snippet as the task description/justification, and embeds a source backlink to the email thread.
+> - **User Feedback & Deep Linking**: Displays an inline toast notification featuring an interactive direct jump link to the created task (e.g. `Jump to RFP Work Desk (SoW Review) →` or `View in Account Workspace →`).
+> - **Outlook Sync & Mailbox Core**: OAuth 2.0 with Microsoft Graph API coupled with a comprehensive Simulated Fallback Sandbox, Webhook + Delta Query sync pipeline, and DPDP 2023 compliant data boundaries.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Overview & Dual-Destination Task Architecture
 
-### 1.1 What It Does
-- **Integrations Scope Review Section**: Replaces the basic Integrations tab with an enterprise-grade scope review desk. It contrasts **Explicit RFP Requirements** (connectors requested by the client in technical specs) against **Inferred Integrations** (derived from SoW clause exceptions, third-party tool suggestions, or external API dependencies). Pre-Sales leads can approve, review, or reject inferred connectors with an explicit audit trail.
-- **Strict Task Module Isolation**: Prevents RFP tender micro-tasks (e.g., "Verify PKCS#11 key size with Thales", "Validate DP epsilon budget with Infosec") from cluttering the standard CRM pipeline task board (`TasksView.tsx`). RFP tasks remain fully operational inside their respective RFP Work Desk sections and the Account Detail "RFP Chapter".
-- **Unified Cross-Module Reporting**: Executive dashboards, workload analytics, and account summaries calculate true operational velocity by summing both CRM pipeline actions and RFP Work Desk deliverables, preventing blind spots during major tender bids.
+### 1.1 The Operational Challenge
+In enterprise sales, inbound emails range from complex tender clarification letters (e.g., State Bank of India requesting PKCS#11 HSM compliance reports) to direct commercial deal inquiries (e.g., Apollo Hospitals requesting a clinical demo or NDA signing). Forcing all emails into a generic task list creates noise for account reps and deprives pre-sales engineers of clause-level RFP tracking.
 
-### 1.2 Target Audience & Personas
-- **Pre-Sales Lead / Solution Architect**: Reviews integration feasibility, confirms whether an alternate 3P tool planned in an SoW clause necessitates an active adapter or middleware, and controls the RFP task backlog.
-- **Delivery Manager / SI Partner Lead**: Validates whether inferred integrations require custom build efforts, additional professional services (PS), or partner co-delivery.
-- **Sales VP / Executive**: Views holistic organizational velocity across commercial account deals and active technical tender workloads in one unified reporting metric.
-
----
-
-## 2. User Experience & Visual Design
-
-Adhering strictly to B2B enterprise design standards: zero-pill metadata discipline, high density, and WCAG AA contrast.
-
-### 2.1 Integrations Scope Review UI
-- **Cluster Bar & Header**: Navigable in both Cluster 2 (Architecture) and Cluster 3 (Delivery) with clean horizontal scroll buttons. Displays key metrics cleanly without decorative pills:
-  ```
-  8 Connectors Tracked · 5 RFP Explicit · 3 Inferred from SoW · 2 Awaiting Solution Lead Approval
-  ```
-- **Filter Segmented Control**: Interactive `<button>` tabs for `All Connectors`, `RFP Requirements (5)`, `Inferred from SoW (3)`, and `Pending Review (2)`.
-- **Connector Row / Card Composition**:
-  - Title and vendor name with category kicker (`DSPM / Alternate Tool for Clause SOW-003`).
-  - Source attribution: Unboxed text separator `RFP Requirement` vs `Inferred from Clause SOW-003 · Cyera Enterprise`.
-  - Throughput, latency SLA, and protocol specifications (`REST / Webhook · 10,000 EPS · < 25ms`).
-  - Interactive Actions: An approval toggle button `[Approve Scope]` / `[Scope Confirmed]` with instant audit logging (`actor: 'SalesOps Copilot'`, `onBehalfOf: current user`).
-
-### 2.2 Tasks Module Strict Isolation
-- In `TasksView.tsx`, ensure the task collection is filtered to strictly exclude any tasks originated from RFP tenders (`isRfpTask: true` or `rfpId !== undefined`).
-- Full task capability (creation, status dropdown, priority selection, assignees, due dates, and completion checkmarks) remains 100% active in:
-  - All 18 RFP Work Desk sections (`RfpTaskSection` drawer).
-  - Account Detail Modal under the `RFP Chapter & Tenders` tab.
-
-### 2.3 Cross-Module Reporting & Metrics
-- **Executive Dashboard KPI Card**:
-  - Main counter: `Total Tasks: 24`
-  - Subtle breakdown subtitle: `16 CRM Deals · 8 RFP Work Desk`
-  - Completion velocity bar aggregating completed CRM tasks + completed RFP tasks.
-- **Account Health Card**: Integrates RFP task completion percentages into account engagement scores.
-
----
-
-## 3. Key Product Decisions & Trade-Offs
-
-| Decision | Chosen Approach | Rationale & Trade-Offs |
-| :--- | :--- | :--- |
-| **Integrations Section Rebrand & Expansion** | Renamed to **Integrations Scope Review** with dual-source ingestion (RFP requirements + SoW clause inference) | Captures real-world enterprise procurement realities where SoW trade-offs introduce third-party integration overhead. |
-| **Inferred Scope Approval Workflow** | Interactive toggle with Pre-Sales confirmation badge | Enforces Human-in-the-Loop governance: automated detection flags candidates, but engineers confirm before commercial freeze. |
-| **RFP Task Display Isolation** | Filtered out of general CRM `TasksView.tsx` | Eliminates noise for account reps who do not manage technical tender line-items, while keeping RFP teams fully equipped. |
-| **Unified Cross-Module Reporting** | Aggregate in `ExecutiveDashboardView` & reporting summaries with `(CRM · RFP)` breakdown | Provides executives with true organizational workload transparency without blending operational boards. |
-
----
-
-## 4. Technical Architecture & Data Strategy
-
-### 4.1 System Diagram
+### 1.2 Smart Task Routing Engine
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        RFP WORK DESK ENGINE                            │
-│                                                                        │
-│  ┌───────────────────────┐              ┌───────────────────────────┐  │
-│  │   SoW Review Section  │              │   RFP Requirements Parser │  │
-│  │  - 3P Tool Suggested  ├──────────┐   │  - Explicit RFP Connectors│  │
-│  │  - Partial Compliance │          │   └─────────────┬─────────────┘  │
-│  └───────────────────────┘          │                 │                │
-│                                     ▼                 ▼                │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                 INTEGRATIONS SCOPE REVIEW SECTION                │  │
-│  │  - Explicit Connectors (RFP Requirements)                        │  │
-│  │  - Inferred Connectors (origin: SoW Clause, approval toggle)     │  │
-│  │  - Universal Task & Comment Drawers                              │  │
-│  └──────────────────────────────────┬───────────────────────────────┘  │
-│                                     │                                  │
-│                 ┌───────────────────┴───────────────────┐              │
-│                 ▼                                       ▼              │
-│  ┌─────────────────────────────┐         ┌───────────────────────────┐ │
-│  │   RFP Section Tasks State   │         │   Account Context Sync    │ │
-│  │  - Task execution & status  │         │  - Account Detail Timeline│ │
-│  │  - Isolated from CRM Tasks  │         │  - RFP Chapter Tab        │ │
-│  └──────────────┬──────────────┘         └───────────────────────────┘ │
-└─────────────────┼──────────────────────────────────────────────────────┘
-                  │ Cross-Module Task Aggregator
-                  ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                   EXECUTIVE REPORTING & DASHBOARD                      │
-│  - Total Tasks = CRM Tasks + RFP Tasks                                 │
-│  - Breakdown: `X CRM · Y RFP` with completion velocity & SLA rates    │
-└────────────────────────────────────────────────────────────────────────┘
+                                Inbound Outlook Email
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │   Account & Domain Detection Engine   │
+                     │  - Matches @domain to CRM Accounts   │
+                     │  - Identifies Contacts & Tenders     │
+                     └───────────────────┬───────────────────┘
+                                         │
+                    Is Account linked to an Active Tender?
+                                    /         \
+                             YES   /           \   NO
+                                  ▼             ▼
+  ┌─────────────────────────────────────┐  ┌─────────────────────────────────────┐
+  │         RFP WORK DESK ROUTE         │  │       ACCOUNT WORKSPACE ROUTE       │
+  │  - Dispatches `RfpSectionTask`      │  │  - Dispatches CRM Account `Task`    │
+  │  - Target Section: SoW / Integrations│  │  - Related Section: Demo / Prop /   │
+  │  - Links: Tender ID & Clause Number │  │    Commercial / Technical           │
+  │  - Assignee: Solution Engineer      │  │  - Assignee: Account Executive      │
+  │  - Visible in RFP Cluster & Chapter │  │  - Scoped strictly to Account       │
+  └──────────────────┬──────────────────┘  └──────────────────┬──────────────────┘
+                     │                                        │
+                     └───────────────────┬────────────────────┘
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │       Inline Toast Notification       │
+                     │  "Task Created Successfully"          │
+                     │  [Jump to RFP Work Desk →]            │
+                     │  [View in Account Workspace →]        │
+                     └───────────────────────────────────────┘
 ```
 
-### 4.2 Data Entity Schema Extensions
-1. **IntegrationItem**:
-   ```typescript
-   export interface IntegrationItem {
-     id: string;
-     rfpId: string;
-     name: string;
-     category: 'Core Banking' | 'Cloud Storage' | 'SIEM & Logging' | 'HSM & KMS' | 'DSPM & Data Security' | 'IAM & SSO' | 'Other';
-     vendor: string;
-     protocol: string;
-     throughputSla: string;
-     latencySla: string;
-     status: 'Verified' | 'In Progress' | 'Pending Review' | 'Flagged';
-     origin: 'RFP Requirement' | 'Inferred from SoW';
-     inferredFromSowId?: string; // e.g. 'sow-003'
-     inferredRationale?: string;
-     isApproved?: boolean;
-     approvedBy?: string;
-     approvedAt?: string;
-   }
-   ```
-2. **Dynamic Inferred Connectors Generator**:
-   - In `RfpContext.tsx`, evaluate `sowList`: whenever an item has `requiresThirdPartyTool: true` or `suggestedThirdPartyTool` present (or compliance is `Partially Compliant` with external tool), generate or expose an inferred `IntegrationItem`.
-   - Provide `approveInferredIntegration(id: string, approver: string)` and `toggleIntegrationApproval(id: string)`.
+---
 
-3. **Tasks Filtering & Aggregation Strategy**:
-   - In `TasksView.tsx`: apply `!task.isRfpTask && !task.rfpId` filter to ensure zero RFP tasks appear in the CRM list.
-   - In `ExecutiveDashboardView.tsx` / `CrmContext.tsx`:
-     ```typescript
-     const totalCrmTasks = crmTasks.length;
-     const totalRfpTasks = rfpTasks.length;
-     const unifiedTotalTasks = totalCrmTasks + totalRfpTasks;
-     const completedCrmTasks = crmTasks.filter(t => t.status === 'Completed').length;
-     const completedRfpTasks = rfpTasks.filter(t => t.status === 'Completed').length;
-     const unifiedCompletedTasks = completedCrmTasks + completedRfpTasks;
-     ```
+## 2. Information Architecture & Key Mailbox Features
+
+### 2.1 3-Pane High-Density Enterprise Layout
+```
+┌─────────────────┬──────────────────────────────┬────────────────────────────────────────────┐
+│ FOLDERS & TAGS  │ THREAD / MESSAGE LIST        │ MESSAGE DETAIL & PRE-SALES RADAR          │
+│                 │                              │                                            │
+│ • Unified Inbox │ [SBI Tender] Tech Clarif...  │ From: arvind.venkatesh@sbi.co.in           │
+│ • Tender Corresp│  Today 10:24 AM · SOW-004    │ To: Ananya Sharma (Pre-Sales Lead)         │
+│ • Client PBQs   │  "Can you clarify PKCS#11... │ Linked: State Bank of India (RFP/SBI/04)   │
+│ • Outbox / Sent │                              ├────────────────────────────────────────────┤
+│ • Drafts        │ [Apollo] Clinical Demo       │ Thread Content:                            │
+│                 │  Yesterday 04:15 PM          │ "...Please provide the Thales HSM firmware │
+│ CONNECT ACCT    │  "We reserved boardroom..."  │  validation test report for Clause 6.2.1." │
+│ [M365 Status]   │                              ├────────────────────────────────────────────┤
+│                 │ [DBS Bank] MAS FEAT Review   │ ⚡ Context-Aware Action Bar:               │
+│                 │  08 Oct 2026                 │ [+ Create Task] ──▶ (Auto-Routes to RFP)   │
+│                 │  "AI ethics committee..."    │ [+ Convert to PBQ]  [Reply with Attest]    │
+└─────────────────┴──────────────────────────────┴────────────────────────────────────────────┘
+```
+
+### 2.2 Interactive "Create Task" Modal
+When the user clicks `[+ Create Task]` or highlights text within an email:
+1. **Destination Auto-Detection Badge**:
+   - If tender exists: `Destination: RFP Work Desk · SBI RFP (Cluster 1 / SoW)`
+   - If non-tender: `Destination: Account Workspace · Apollo Hospitals (Commercial Deal)`
+   - Includes an override toggle button (`Switch to Account Task` / `Switch to RFP Task`) for manual pre-sales control.
+2. **Pre-Populated Fields**:
+   - *Title*: Pre-filled with email subject (e.g. `Clarify HSM PKCS#11 firmware validation`).
+   - *Description*: Pre-filled with highlighted email text or selected snippet with source reference.
+   - *Target Due Date (TCT)*: Defaulted to 3 business days or RFP cutoff date.
+   - *Assignee*: Pre-selected based on role (Solution Engineer for RFP tasks, Sales Owner for Account tasks).
+   - *Section*: For RFP tasks, selectable work desk section (`sow`, `integrations`, `pbq`, `legal`, `projectPlan`); for Account tasks, selectable CRM section (`Technical Proposal`, `Demo`, `Commercial Proposal`, `General`).
+
+### 2.3 Post-Creation Toast & Navigation Feedback
+- Toast message: `✓ Task logged in RFP Work Desk: "Clarify HSM PKCS#11..."`
+- Action button: `[Jump to SoW Review →]` which switches active view to the RFP Work Desk and navigates to the target section with the new task highlighted.
+- For Account tasks: `[View in Account Workspace →]` which opens the Account Detail Modal with the Tasks tab active.
 
 ---
 
-## 5. Implementation Steps & Work Plan
+## 3. Technical Architecture & Component Structure
 
-1. **Step 1: Extend RFP Types & Seed Data**
-   - Update `src/types/rfp.ts` with `origin`, `inferredFromSowId`, `inferredRationale`, `isApproved`, `approvedBy`, `approvedAt` on `IntegrationItem`.
-   - Update `src/data/rfpSeedData.ts` with explicit and inferred integration seeds linked to SoW clauses (e.g., Cyera DSPM for unstructured discovery, Thales Luna HSM for PKCS#11 root key storage).
+### 3.1 Component Hierarchy
+```
+src/components/Mailbox/
+├── MailboxView.tsx                     # Main 3-pane layout, folder navigation & state orchestrator
+├── EmailThreadList.tsx                 # Searchable, filterable list with unboxed tender tags
+├── EmailDetailPane.tsx                 # Full message view, thread history, and Pre-Sales Action Bar
+├── EmailComposerModal.tsx              # Rich compose modal with collateral and FRD attachments
+├── OutlookConnectModal.tsx             # OAuth 2.0 M365 authentication & permissions modal
+├── CreateTaskFromEmailModal.tsx        # Smart Dual-Destination Task Creation Modal
+└── ToastNotification.tsx               # Deep-linking toast with jump triggers
+```
 
-2. **Step 2: Upgrade RfpContext with Inferred Integration Logic**
-   - Add dynamic inference from `sowList` line items that have third-party tool suggestions.
-   - Provide `approveInferredIntegration` and `toggleIntegrationApproval` actions with audit logs.
+### 3.2 Routing Data Model (`src/types/mailbox.ts`)
+```typescript
+export interface TaskCreationDraft {
+  emailId: string;
+  sourceSubject: string;
+  sourceSender: string;
+  selectedTextSnippet?: string;
+  matchedAccountId?: string;
+  matchedAccountName?: string;
+  matchedTenderId?: string;
+  matchedTenderNumber?: string;
+  routingDestination: 'rfp_workdesk' | 'account_workspace';
+  targetSection: string; // RFP section key OR CRM task section
+  title: string;
+  description: string;
+  priority: 'High' | 'Medium' | 'Low' | 'Urgent';
+  assigneeName: string;
+  dueDate: string;
+}
+```
 
-3. **Step 3: Create IntegrationsScopeReviewSection Component**
-   - Rename and upgrade `src/components/RfpWorkDesk/IntegrationsSection.tsx` to `IntegrationsScopeReviewSection.tsx`.
-   - Implement source filter tabs (`All`, `RFP Explicit`, `Inferred from SoW`, `Pending Approval`).
-   - Add approval toggle button for inferred items with clause reference link.
-   - Update navigation and section registry in `RfpWorkDeskView.tsx`.
+---
 
-4. **Step 4: Strictly Exclude RFP Tasks from CRM TasksView**
-   - In `src/components/Tasks/TasksView.tsx`, ensure the active task filter excludes any task with `isRfpTask` or `rfpId`.
-   - Verify that all task management capabilities (creation, editing, statuses, priorities) remain fully functional in `RfpWorkDesk` sections and `AccountDetailModal`.
+## 4. Implementation Steps & Work Plan
 
-5. **Step 5: Unified Cross-Module Task Reporting**
-   - Update `ExecutiveDashboardView.tsx` and pipeline metrics to compute unified task counts (CRM + RFP) with clean `(CRM · RFP)` breakdown indicators.
+1. **Step 1: Mailbox Data Types & Seed Data**
+   - Create `src/types/mailbox.ts` with `EmailMessage`, `OutlookConnectionStatus`, and `TaskCreationDraft`.
+   - Create `src/data/mailboxSeedData.ts` populated with realistic enterprise RFP and non-RFP email threads for State Bank of India, Apollo Hospitals, DBS Bank, and National Health Authority.
+
+2. **Step 2: Outlook & Mailbox Context (`MailboxContext.tsx`)**
+   - Implement messages state with delta query simulator and live Microsoft Graph OAuth configuration.
+   - Implement dual-destination task dispatcher:
+     - Calls `useRfp().addTask` when destination is `rfp_workdesk`.
+     - Calls `useCrm().addTask` when destination is `account_workspace`.
+   - Provides deep-link navigation triggers back to the target view.
+
+3. **Step 3: Smart Dual-Destination Task Creation Modal (`CreateTaskFromEmailModal.tsx`)**
+   - Inspects matched account procurement type and active tenders.
+   - Pre-populates title, highlighted snippet, and backlink.
+   - Provides destination override toggle with dynamic role assignment.
+
+4. **Step 4: High-Density 3-Pane Mailbox View (`MailboxView.tsx`)**
+   - Left pane: System folders, tender/account filter tags, and Outlook connection status badge.
+   - Middle pane: Thread list with unboxed metadata and search.
+   - Right pane: Detailed conversation view with **Pre-Sales Action Bar** (`[+ Create Task]`, `[+ Convert to PBQ]`, `[Reply with Attestation]`).
+
+5. **Step 5: Interactive Email Composer & Collateral Picker**
+   - Implement `EmailComposerModal.tsx` allowing solution engineers to attach verified FIPS-140-3 whitepapers, DPDP 2023 compliance matrices, and roadmap FRDs directly into outgoing tenders.
 
 6. **Step 6: Verification & Quality Assurance**
    - Run `lint_applet` and `compile_applet` to ensure zero compilation or typing errors.
-   - Verify visual rendering in browser environment.
+
+---
+
+## 5. Verification Checkpoints
+
+- [ ] Mailbox automatically identifies whether an email belongs to an active RFP tender account (`SBI`, `NHA`) or a direct commercial account (`Apollo`, `DBS`).
+- [ ] Clicking `[+ Create Task]` for an RFP email routes the task to the RFP Work Desk with target section selection.
+- [ ] Clicking `[+ Create Task]` for a non-RFP email routes the task to the Account CRM workspace with related section selection.
+- [ ] Created tasks pre-populate email subject as title, highlighted text as description, and embed the source email reference.
+- [ ] Inline toast notification renders an actionable jump link that smoothly redirects to the created task in its target view.
+- [ ] Outgoing email composer supports attaching verified PrivaSapien collaterals and FRD specs.
+- [ ] Strict defensive TypeScript, clean build, zero lint warnings.
